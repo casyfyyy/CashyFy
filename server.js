@@ -464,4 +464,291 @@ app.post('/web/forgot', async (req, res) => {
     await dbPatch('users', `phone=eq.${phone}`, { password: hashPassword(newPassword) });
     await sendSMS(phone, newPassword);
     if (u.telegram_id) {
-      await sendMsg(u.
+      await sendMsg(u.telegram_id,
+        `<b>🔐 CashyFy Password Reset</b>\n\n<b>Your new password: <code>${newPassword}</code></b>\n\n<b>Please login and change your password immediately!</b>\n\n<b>- CashyFy Team</b>`
+      );
+    }
+    res.json({ success: true });
+  } catch(e) { res.json({ success: false, error: 'Server error' }); }
+});
+
+app.get('/web/profile', async (req, res) => {
+  try {
+    const token = req.headers['x-token'];
+    if (!token) return res.json({ success: false, error: 'Token chahiye' });
+    const users = await dbGet('users', `web_token=eq.${token}`);
+    if (users.length === 0) return res.json({ success: false, error: 'Invalid token' });
+    const u = users[0];
+    res.json({
+      success: true, name: u.name, phone: u.phone,
+      balance: parseFloat(u.balance || 0).toFixed(2),
+      lifetime_earnings: parseFloat(u.lifetime_earnings || 0).toFixed(2),
+      upi_id: u.upi_id || null, bank_account: u.bank_account || null, bank_ifsc: u.bank_ifsc || null
+    });
+  } catch(e) { res.json({ success: false, error: 'Server error' }); }
+});
+
+app.get('/web/txns', async (req, res) => {
+  try {
+    const token = req.headers['x-token'];
+    if (!token) return res.json({ success: false, error: 'Token chahiye' });
+    const users = await dbGet('users', `web_token=eq.${token}`);
+    if (users.length === 0) return res.json({ success: false, error: 'Invalid token' });
+    const u = users[0];
+    const conversions = await dbGet('conversions', `telegram_id=eq.${u.phone}&order=created_at.desc&limit=50`);
+    const withdrawals = await dbGet('withdrawals', `telegram_id=eq.${u.telegram_id}&order=created_at.desc&limit=50`);
+    const txns = [
+      ...conversions.map(c => ({
+        id: `TXN${c.id}`, type: 'credit', title: c.offer_name,
+        amount: parseFloat(c.amount), status: c.amount > 0 ? 'success' : 'pending',
+        comment: c.event,
+        date: new Date(c.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }),
+        method: 'cashback', closing: ''
+      })),
+      ...withdrawals.map(w => ({
+        id: `WD${w.id}`, type: 'debit', title: 'Withdrawal',
+        amount: parseFloat(w.amount),
+        status: w.status === 'paid' ? 'success' : w.status === 'cancelled' ? 'failed' : 'pending',
+        comment: `To: ${w.upi_id}`,
+        date: new Date(w.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }),
+        method: w.upi_id?.includes('@') ? 'upi' : 'bank', closing: ''
+      }))
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json({ success: true, txns });
+  } catch(e) { res.json({ success: false, error: 'Server error' }); }
+});
+
+app.post('/web/withdraw', async (req, res) => {
+  try {
+    const token = req.headers['x-token'];
+    if (!token) return res.json({ success: false, error: 'Token chahiye' });
+    const users = await dbGet('users', `web_token=eq.${token}`);
+    if (users.length === 0) return res.json({ success: false, error: 'Invalid token' });
+    const u = users[0];
+    const { amount, method, upi_id, bank_account, bank_ifsc } = req.body;
+    const amt = parseFloat(amount);
+    if (isNaN(amt) || amt < 10) return res.json({ success: false, error: 'Minimum ₹10 required' });
+    if (amt > parseFloat(u.balance)) return res.json({ success: false, error: 'Insufficient balance' });
+    const payment = method === 'upi' ? upi_id : `${bank_account} | ${bank_ifsc}`;
+    const requestId = getRequestId();
+    const newBal = parseFloat(u.balance) - amt;
+    await dbPost('withdrawals', { telegram_id: u.telegram_id, amount: amt, upi_id: payment, status: 'pending', request_id: requestId });
+    await dbPatch('users', `telegram_id=eq.${u.telegram_id}`, { balance: newBal < 0 ? 0 : newBal });
+    // ✅ Push notification
+    await sendPushNotification(
+      '💸 New Withdraw Request!',
+      `${u.name} — ₹${amt} — ${payment}`
+    );
+    res.json({ success: true, request_id: requestId, new_balance: newBal.toFixed(2) });
+  } catch(e) { res.json({ success: false, error: 'Server error' }); }
+});
+
+app.post('/web/transfer', async (req, res) => {
+  try {
+    const token = req.headers['x-token'];
+    if (!token) return res.json({ success: false, error: 'Token chahiye' });
+    const senderUsers = await dbGet('users', `web_token=eq.${token}`);
+    if (senderUsers.length === 0) return res.json({ success: false, error: 'Invalid token' });
+    const sender = senderUsers[0];
+    const { phone, amount } = req.body;
+    const amt = parseFloat(amount);
+    if (!phone || !/^[6-9]\d{9}$/.test(phone)) return res.json({ success: false, error: 'Valid phone chahiye' });
+    if (isNaN(amt) || amt <= 0) return res.json({ success: false, error: 'Valid amount chahiye' });
+    if (phone === sender.phone) return res.json({ success: false, error: 'Apne aap ko transfer nahi' });
+    if (amt > parseFloat(sender.balance)) return res.json({ success: false, error: 'Insufficient balance' });
+    const receiverUsers = await dbGet('users', `phone=eq.${phone}`);
+    if (receiverUsers.length === 0) return res.json({ success: false, error: 'Receiver registered nahi hai' });
+    const receiver = receiverUsers[0];
+    const senderNewBal = parseFloat(sender.balance) - amt;
+    await dbPatch('users', `phone=eq.${sender.phone}`, { balance: senderNewBal < 0 ? 0 : senderNewBal });
+    const receiverNewBal = parseFloat(receiver.balance) + amt;
+    await dbPatch('users', `phone=eq.${receiver.phone}`, { balance: receiverNewBal });
+    if (receiver.telegram_id) {
+      await sendMsg(receiver.telegram_id,
+        `<b>💰 Payment of Rs. ${amt} received</b>\n\n<b>You have received Rs ${amt} from ${sender.name}</b>\n\n<b>Updated Balance: ₹${receiverNewBal.toFixed(2)}</b>`
+      );
+    }
+    res.json({ success: true, receiver_name: receiver.name, amount: amt, new_balance: senderNewBal.toFixed(2) });
+  } catch(e) { res.json({ success: false, error: 'Server error' }); }
+});
+
+app.post('/web/logout', async (req, res) => {
+  try {
+    const token = req.headers['x-token'];
+    if (!token) return res.json({ success: false });
+    await dbPatch('users', `web_token=eq.${token}`, { web_token: null });
+    res.json({ success: true });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.post('/web/update-password', async (req, res) => {
+  try {
+    const token = req.headers['x-token'];
+    if (!token) return res.json({ success: false, error: 'Token chahiye' });
+    const users = await dbGet('users', `web_token=eq.${token}`);
+    if (users.length === 0) return res.json({ success: false, error: 'Invalid token' });
+    const u = users[0];
+    const { current_password, new_password } = req.body;
+    if (u.password !== hashPassword(current_password)) return res.json({ success: false, error: 'Current password galat hai' });
+    await dbPatch('users', `phone=eq.${u.phone}`, { password: hashPassword(new_password) });
+    res.json({ success: true });
+  } catch(e) { res.json({ success: false, error: 'Server error' }); }
+});
+
+// ===================== OFFER ENDPOINTS =====================
+
+app.post('/refer/create', async (req, res) => {
+  try {
+    const { offer_name, referrer_phone, user_payout, my_payout } = req.body;
+    if (!offer_name || !referrer_phone) return res.json({ success: false });
+    const code = generateReferCode(offer_name);
+    await dbPost('wallet_referrals', { code, offer_name, referrer_phone, user_payout: user_payout || 0, my_payout: my_payout || 0 });
+    const slug = offerSlugMap[offer_name] || offer_name;
+    const landing_url = `https://cashyfy.site/offer/${slug}?source=${code}`;
+    res.json({ success: true, code, landing_url });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/refer/amount', async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) return res.json({ success: false });
+    const referral = await dbGet('wallet_referrals', `code=eq.${code}`);
+    if (referral.length === 0) return res.json({ success: false });
+    res.json({ success: true, user_payout: referral[0].user_payout, my_payout: referral[0].my_payout, offer_name: referral[0].offer_name });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.post('/click', async (req, res) => {
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (!rateLimit(ip, 30, 60000)) return res.status(429).json({ success: false });
+    const { click_id, offer_name, refer_code, phone } = req.body;
+    if (!click_id || !offer_name) return res.json({ success: false });
+    let referred_by = null, user_payout = 0, my_payout = 0;
+    if (refer_code) {
+      const referral = await dbGet('wallet_referrals', `code=eq.${refer_code}`);
+      if (referral.length > 0) {
+        referred_by = referral[0].referrer_phone;
+        user_payout = referral[0].user_payout;
+        my_payout = referral[0].my_payout;
+      }
+    }
+    await dbPost('clicks', { click_id, offer_name: sanitize(offer_name), phone: phone || null, referred_by, user_payout, my_payout });
+    res.json({ success: true });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/offer-status', async (req, res) => {
+  try {
+    const { offer } = req.query;
+    if (!offer) return res.json({ is_active: true });
+    const result = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offer)}`);
+    if (result.length > 0) { res.json({ is_active: result[0].is_active }); }
+    else { res.json({ is_active: true }); }
+  } catch(e) { res.json({ is_active: true }); }
+});
+
+app.get('/offers-list', async (req, res) => {
+  try {
+    res.json({ success: true, offers: Object.keys(offerConfig) });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/offer-info', async (req, res) => {
+  try {
+    const { offer } = req.query;
+    if (!offer) return res.json({ success: false });
+    const config = offerConfig[offer];
+    if (!config) return res.json({ success: false });
+    const statusResult = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offer)}`);
+    const is_active = statusResult.length > 0 ? statusResult[0].is_active : true;
+    res.json({ success: true, payout: config.trialAmt, is_active });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/wallet-tracker', async (req, res) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) return res.json({ success: false });
+    const conversions = await dbGet('conversions', `click_id=like.${encodeURIComponent(phone)}%&order=created_at.desc`);
+    if (conversions.length === 0) return res.json({ success: false });
+    res.json({
+      success: true,
+      conversions: conversions.map(c => ({
+        offer_name: c.offer_name, amount: c.amount,
+        status: c.amount > 0 ? 'paid' : 'pending', time: c.created_at
+      }))
+    });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/postback', async (req, res) => {
+  try {
+    const { click_id = 'N/A', event = 'N/A', token } = req.query;
+    if (token !== POSTBACK_TOKEN) { return res.status(403).send('Forbidden'); }
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (!rateLimit(ip, 50, 60000)) return res.status(429).send('Too Many Requests');
+    console.log('POSTBACK:', req.query);
+    let runTime = getTime(), offer = 'Unknown', phone = null, referred_by = null, user_payout_custom = 0, my_payout_custom = 0;
+    try {
+      const clicks = await dbGet('clicks', `click_id=eq.${encodeURIComponent(click_id)}&order=created_at.desc&limit=1`);
+      if (clicks.length > 0) {
+        offer = clicks[0].offer_name; phone = clicks[0].phone;
+        runTime = new Date(clicks[0].created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }).replace(',', '');
+        referred_by = clicks[0].referred_by;
+        user_payout_custom = clicks[0].user_payout || 0;
+        my_payout_custom = clicks[0].my_payout || 0;
+      }
+    } catch(e) {}
+    if (!phone) { return res.send('OK'); }
+    const config = offerConfig[offer] || { installAmt: 0, trialAmt: 0, installBalance: false, trialBalance: false, installComment: `${offer} Install`, trialComment: `${offer} Trial` };
+    let amount = 0, comment = '', addBalance = false;
+    const eventName = event?.trim().toLowerCase();
+    if (['web', 'initial', 'install', 'e1', 'default'].includes(eventName)) {
+      amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
+    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'deposit', 'trial_payment_successful'].includes(eventName)) {
+      comment = config.trialComment; addBalance = config.trialBalance;
+      amount = referred_by ? user_payout_custom : (user_payout_custom > 0 ? user_payout_custom : config.trialAmt || 0);
+    } else {
+      amount = parseFloat(req.query.amount || 0); comment = `${offer} Complete`; addBalance = true;
+    }
+    await dbPost('conversions', { telegram_id: phone, click_id, offer_name: offer, amount, event });
+    const users = await dbGet('users', `phone=eq.${phone}`);
+    const userPayment = users.length > 0 ? 'Success' : 'Failed';
+    if (users.length > 0) {
+      const u = users[0];
+      if (addBalance && amount > 0) {
+        const newBal = parseFloat(u.balance) + amount;
+        const newLife = parseFloat(u.lifetime_earnings) + amount;
+        await dbPatch('users', `phone=eq.${phone}`, { balance: newBal, lifetime_earnings: newLife });
+        await sendMsg(u.telegram_id, `<b>🧿 Cashback Credited 🧿</b>\n\n<b>💶 Amount = ₹${amount}</b>\n<b>💰 Updated Balance = ₹${newBal.toFixed(2)}</b>\n\n<b>💡 Comment = ${comment}</b>`);
+      }
+      if (referred_by && my_payout_custom > 0 && addBalance) {
+        const referrers = await dbGet('users', `phone=eq.${referred_by}`);
+        if (referrers.length > 0) {
+          const r = referrers[0];
+          const newRefBal = parseFloat(r.balance) + my_payout_custom;
+          const newRefLife = parseFloat(r.lifetime_earnings) + my_payout_custom;
+          await dbPatch('users', `phone=eq.${referred_by}`, { balance: newRefBal, lifetime_earnings: newRefLife });
+          await sendMsg(r.telegram_id, `<b>🎉 Refer Bonus!\n\n💶 Amount = ₹${my_payout_custom}\n💰 Updated Balance = ₹${newRefBal.toFixed(2)}\n\n💡 Comment = Refer Bonus - ${offer}</b>`);
+        }
+      }
+    }
+    const trackTime = getTime();
+    const msg = referred_by
+      ? `<b>Conversation Count 💝</b>\n\n<b>🎁 Offer - ${offer}</b>\n\n<b>User: ${maskPhone(phone)}</b>\n<b>Amount: ₹${amount}</b>\n<b>Payment: ${userPayment}</b>\n\n<b>Refer: ${maskPhone(referred_by)}</b>\n<b>Refer Amount: ₹${my_payout_custom}</b>\n\n<b>Run Time: ${runTime}</b>\n<b>Track Time: ${trackTime}</b>\n\n<b>Powered By - CashyFy</b>`
+      : `<b>Conversation Count 💝</b>\n\n<b>🎁 Offer - ${offer}</b>\n\n<b>User: ${maskPhone(phone)}</b>\n<b>Amount: ₹${amount}</b>\n<b>Payment: ${userPayment}</b>\n\n<b>Run Time: ${runTime}</b>\n<b>Track Time: ${trackTime}</b>\n\n<b>Powered By - CashyFy</b>`;
+    await sendMsg(CHAT_ID, msg);
+  } catch(e) { console.error(e); }
+  res.send('OK');
+});
+
+app.get('/', (req, res) => res.send('CashyFy Wallet Running! ✅'));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Running on port ${PORT}`));
+
+setInterval(async () => {
+  try { await fetchWithTimeout('https://campetihad-1.onrender.com/'); } catch(e) {}
+}, 14 * 60 * 1000);
