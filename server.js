@@ -43,7 +43,7 @@ const CHAT_ID = process.env.CHAT_ID;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = '8897413984';
-const POSTBACK_TOKEN = process.env.POSTBACK_TOKEN || 'cashf';
+const POSTBACK_TOKEN = process.env.POSTBACK_TOKEN || 'cash';
 const SMS_API_KEY = process.env.SMS_API_KEY || '';
 
 const offerConfig = {
