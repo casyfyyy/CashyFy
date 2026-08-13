@@ -14,17 +14,17 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const ADMIN_ID = process.env.ADMIN_ID || '8897413984';
+const ADMIN_ID = '8897413984';
 const POSTBACK_TOKEN = process.env.POSTBACK_TOKEN || 'cashf';
 
 const offerConfig = {
   'Waves': { installAmt: 0.1, trialAmt: 3, installBalance: false, trialBalance: true, installComment: 'Waves Install', trialComment: 'Waves Signup' },
-  'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar Install', trialComment: 'PolicyBazar Register' },
-  'Bharat Ryd': { installAmt: 0.1, trialAmt: 4, installBalance: false, trialBalance: true, installComment: 'Bharat Ryd Install', trialComment: 'Bharat Ryd Register' },
-  'Jigri Super': { installAmt: 0.1, trialAmt: 45, installBalance: false, trialBalance: true, installComment: 'Jigri Super Install', trialComment: 'Jigri Super Deposit' },
-  'FRIENDSHIP': { installAmt: 0.1, trialAmt: 43, installBalance: false, trialBalance: true, installComment: 'Friendship Install', trialComment: 'Friendship Deposit' },
-  'Incred Gold': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'Incred Gold Install', trialComment: 'Incred Gold Complete' },
-  'StoryTv Fire': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'StoryTv Install', trialComment: 'StoryTv Register' }
+  'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
+  'Bharat Ryd': { installAmt: 0.1, trialAmt: 4, installBalance: false, trialBalance: true, installComment: 'BharatRdy Install', trialComment: 'BharatRdy Register' },
+  'Jigri Super': { installAmt: 0.1, trialAmt: 45, installBalance: false, trialBalance: true, installComment: 'JIGRI Install', trialComment: 'JIGRI Deposit' },
+  'FRIENDSHIP': { installAmt: 0.1, trialAmt: 43, installBalance: false, trialBalance: true, installComment: 'FriendShip Install', trialComment: 'FriendShip Deposit' },
+  'Incred Gold': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'Incred Install', trialComment: 'Incred Gold' },
+  'StoryTv Fire': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'StoryTv Install', trialComment: 'StoryTv Trail' }
 };
 
 const offerSlugMap = {
@@ -58,15 +58,15 @@ async function fetchWithTimeout(url, options = {}, timeout = 8000) {
 
 function maskPhone(phone) {
   if (!phone || phone.length < 8) return phone;
-  return phone.slice(0, 4) + '••••' + phone.slice(-2);
+  return phone.slice(0, 4) + '****' + phone.slice(-4);
 }
 
 function getTime() {
-  return new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true }).replace(',', '');
+  return new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }).replace(',', '');
 }
 
 function getRequestId() {
-  return 'TXN' + Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(10000 + Math.random() * 90000).toString();
 }
 
 function isValidUPI(upi) { return /^[a-zA-Z0-9._-]+@[a-zA-Z]+$/.test(upi); }
@@ -103,6 +103,18 @@ async function sendMsg(chat_id, text, keyboard) {
   }
 }
 
+async function editMsg(chat_id, message_id, text, inline_keyboard) {
+  try {
+    const body = { chat_id, message_id, text, parse_mode: 'HTML' };
+    if (inline_keyboard !== undefined) body.reply_markup = { inline_keyboard };
+    await fetchWithTimeout(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  } catch(e) {}
+}
+
 async function sendInlineMsg(chat_id, text, inline_keyboard) {
   for (let i = 0; i < 3; i++) {
     try {
@@ -116,16 +128,22 @@ async function sendInlineMsg(chat_id, text, inline_keyboard) {
   }
 }
 
-async function editMsg(chat_id, message_id, text, inline_keyboard) {
+async function deleteMsg(chat_id, message_id) {
   try {
-    const body = { chat_id, message_id, text, parse_mode: 'HTML' };
-    if (inline_keyboard !== undefined) body.reply_markup = { inline_keyboard };
-    await fetchWithTimeout(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
+    await fetchWithTimeout(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify({ chat_id, message_id })
     });
   } catch(e) {}
+}
+
+async function answerAlert(callback_query_id, text) {
+  await fetchWithTimeout(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id, text, show_alert: text ? true : false })
+  });
 }
 
 async function dbGet(table, filter) {
@@ -151,6 +169,7 @@ async function dbPatch(table, filter, data) {
   });
 }
 
+// ✅ Transfer button add kiya
 const mainKeyboard = [['💰 Withdraw', '👤 Profile'], ['🔄 Transfer', '📊 History']];
 const contactKeyboard = {
   keyboard: [[{ text: '📱 Share Contact', request_contact: true }]],
@@ -170,7 +189,7 @@ setInterval(() => {
       delete userState[chat_id];
     }
   }
-  console.log('🧹 Memory cleanup done');
+  console.log('Memory cleanup done ✅');
 }, 30 * 60 * 1000);
 
 app.post('/webhook', async (req, res) => {
@@ -183,52 +202,159 @@ app.post('/webhook', async (req, res) => {
       const message_id = callback_query.message?.message_id;
 
       if (data === 'set_upi') {
-        userState[chat_id] = { state: 'set_upi', timestamp: Date.now() };
-        await sendMsg(chat_id, `<b>💳 Enter your UPI ID:</b>\n\nExample: <code>name@okaxis</code>`);
+        await answerAlert(callback_query.id, '');
+        const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+        if (users.length > 0 && users[0].upi_id) {
+          await editMsg(chat_id, message_id,
+            `<b>💸 UPI Details:</b>\n\n<b>UPI ID: ${users[0].upi_id}</b>`,
+            [[{ text: '✏️ Update', callback_data: 'update_upi' }]]
+          );
+        } else {
+          await editMsg(chat_id, message_id,
+            `<b>💸 UPI Details:\n\nNo Upi Details saved.</b>`,
+            [[{ text: '✏️ Update', callback_data: 'update_upi' }]]
+          );
+        }
+
+      } else if (data === 'update_upi') {
+        await answerAlert(callback_query.id, '');
+        userState[chat_id] = { state: 'set_upi', message_id: null, timestamp: Date.now() };
+        await sendMsg(chat_id, `<b>Please enter your UPI ID (format: alphanumeric@alphabets)\n\nExample: john.doe@okaxis</b>`);
 
       } else if (data === 'set_bank') {
-        userState[chat_id] = { state: 'set_bank_account', timestamp: Date.now() };
-        await sendMsg(chat_id, `<b>🏦 Enter your Account Number:</b>`);
+        await answerAlert(callback_query.id, '');
+        const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+        if (users.length > 0 && users[0].bank_account) {
+          await editMsg(chat_id, message_id,
+            `<b>🏦 Bank Details:</b>\n\n<b>Account Number: ${users[0].bank_account}</b>\n<b>IFSC Code: ${users[0].bank_ifsc}</b>`,
+            [[{ text: '✏️ Update', callback_data: 'update_bank' }]]
+          );
+        } else {
+          await editMsg(chat_id, message_id,
+            `<b>🏦 Bank Details:\n\nNo bank details saved.</b>`,
+            [[{ text: '✏️ Update', callback_data: 'update_bank' }]]
+          );
+        }
+
+      } else if (data === 'update_bank') {
+        await answerAlert(callback_query.id, '');
+        userState[chat_id] = { state: 'set_bank_account', message_id: null, timestamp: Date.now() };
+        await sendMsg(chat_id, `<b>Please enter your account number:</b>`);
 
       } else if (data === 'withdraw_upi') {
+        await answerAlert(callback_query.id, '');
         const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
         if (users.length > 0) {
           const u = users[0];
-          userState[chat_id] = { state: 'withdraw_amount', method: 'upi', payment: u.upi_id, timestamp: Date.now() };
-          await sendMsg(chat_id, `<b>💸 Enter Withdrawal Amount</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}\n<b>Minimum:</b> ₹10`);
+          if (!u.upi_id) {
+            await editMsg(chat_id, message_id,
+              `<b>💸 UPI Details:\n\nNo UPI saved.</b>`,
+              [[{ text: '✏️ Update', callback_data: 'update_upi' }]]
+            );
+          } else if (parseFloat(u.balance) >= 10) {
+            userState[chat_id] = { state: 'withdraw_amount', method: 'upi', payment: u.upi_id, message_id, timestamp: Date.now() };
+            await editMsg(chat_id, message_id, `<b>Please enter withdrawal amount (Minimum: ₹10.00):</b>`, []);
+          } else {
+            await sendMsg(chat_id, `<b>❌ Minimum ₹10 Required To Withdraw!</b>`, mainKeyboard);
+          }
         }
 
       } else if (data === 'withdraw_bank') {
+        await answerAlert(callback_query.id, '');
         const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
         if (users.length > 0) {
           const u = users[0];
-          userState[chat_id] = { state: 'withdraw_amount', method: 'bank', payment: `${u.bank_account} | ${u.bank_ifsc}`, timestamp: Date.now() };
-          await sendMsg(chat_id, `<b>💸 Enter Withdrawal Amount</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}\n<b>Minimum:</b> ₹10`);
+          if (!u.bank_account) {
+            await editMsg(chat_id, message_id,
+              `<b>🏦 Bank Details:\n\nNo bank details saved.</b>`,
+              [[{ text: '✏️ Update', callback_data: 'update_bank' }]]
+            );
+          } else if (parseFloat(u.balance) >= 10) {
+            userState[chat_id] = { state: 'withdraw_amount', method: 'bank', payment: `${u.bank_account} | ${u.bank_ifsc}`, message_id, timestamp: Date.now() };
+            await editMsg(chat_id, message_id, `<b>Please enter withdrawal amount (Minimum: ₹10.00):</b>`, []);
+          } else {
+            await sendMsg(chat_id, `<b>❌ Minimum ₹10 Required To Withdraw!</b>`, mainKeyboard);
+          }
+        }
+
+      } else if (data === 'approve_withdraw') {
+        await answerAlert(callback_query.id, '');
+        if (message_id) await deleteMsg(chat_id, message_id);
+        const state = userState[chat_id];
+        if (state && state.state === 'withdraw_confirm') {
+          const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+          if (users.length > 0) {
+            const u = users[0];
+            const amt = parseFloat(state.amount);
+            if (isNaN(amt) || amt <= 0 || amt < 10) {
+              await sendMsg(chat_id, `<b>❌ Invalid amount!</b>`, mainKeyboard);
+              delete userState[chat_id];
+              return res.send('OK');
+            }
+            if (parseFloat(u.balance) < amt) {
+              await sendMsg(chat_id, `<b>❌ Insufficient balance! Available: ₹${parseFloat(u.balance).toFixed(2)}</b>`, mainKeyboard);
+              delete userState[chat_id];
+              return res.send('OK');
+            }
+            const now = getTime();
+            const requestId = getRequestId();
+            const newBal = parseFloat(u.balance) - amt;
+            await dbPost('withdrawals', { telegram_id: chat_id, amount: amt, upi_id: state.payment, status: 'pending', request_id: requestId });
+            await dbPatch('users', `telegram_id=eq.${chat_id}`, { balance: newBal < 0 ? 0 : newBal });
+            await sendInlineMsg(chat_id,
+              `<b>⏳ Withdrawal Request Submitted for Menual Approval!</b>\n\n<b>📊 Request ID: ${requestId}</b>\n<b>💰 Amount: ₹${amt}</b>\n<b>📱 Method: ${state.method === 'upi' ? 'UPI' : 'Bank'}</b>\n<b>📅 Date: ${now}</b>`,
+              [[{ text: '🔍 Check Status', callback_data: `status_${requestId}` }]]
+            );
+            await sendInlineMsg(ADMIN_ID,
+              `<b>💸 New Withdraw Request!</b>\n\n<b>🧑 User: ${u.name}</b>\n<b>📱 Phone: ${u.phone}</b>\n<b>💰 Amount: ₹${amt}</b>\n<b>💳 Payment: ${state.payment}</b>\n<b>📅 Time: ${now}</b>\n<b>📊 Request ID: ${requestId}</b>`,
+              [[{ text: '✅ Approve', callback_data: `admin_approve_${requestId}` }, { text: '❌ Cancel', callback_data: `admin_cancel_${requestId}` }]]
+            );
+            delete userState[chat_id];
+          }
+        }
+
+      } else if (data === 'cancel_withdraw') {
+        await answerAlert(callback_query.id, '');
+        if (message_id) await deleteMsg(chat_id, message_id);
+        delete userState[chat_id];
+        await sendMsg(chat_id, `<b>❌ Withdrawal Cancelled!</b>`, mainKeyboard);
+
+      } else if (data.startsWith('status_')) {
+        const requestId = data.replace('status_', '');
+        const withdrawals = await dbGet('withdrawals', `request_id=eq.${requestId}`);
+        if (withdrawals.length > 0) {
+          const w = withdrawals[0];
+          if (w.telegram_id !== chat_id && chat_id !== ADMIN_ID) {
+            await answerAlert(callback_query.id, '❌ Unauthorized!');
+            return res.send('OK');
+          }
+          const statusEmoji = w.status === 'paid' ? '✅' : w.status === 'cancelled' ? '❌' : '🕐';
+          const statusText = w.status === 'paid' ? 'Paid' : w.status === 'cancelled' ? 'Cancelled' : 'Pending';
+          await answerAlert(callback_query.id, `Status: ${statusText} ${statusEmoji}`);
         }
 
       } else if (data.startsWith('admin_approve_')) {
-        if (chat_id !== ADMIN_ID) return res.send('OK');
+        if (chat_id !== ADMIN_ID) { await answerAlert(callback_query.id, '❌ Unauthorized!'); return res.send('OK'); }
         const requestId = data.replace('admin_approve_', '');
         const withdrawals = await dbGet('withdrawals', `request_id=eq.${requestId}`);
         if (withdrawals.length > 0) {
           const w = withdrawals[0];
-          if (w.status !== 'pending') return res.send('OK');
+          if (w.status !== 'pending') { await answerAlert(callback_query.id, '⚠️ Already processed!'); return res.send('OK'); }
           await dbPatch('withdrawals', `request_id=eq.${requestId}`, { status: 'paid' });
           await editMsg(ADMIN_ID, message_id,
-            `<b>✅ Withdrawal Approved</b>\n\n<b>ID:</b> ${requestId}\n<b>Amount:</b> ₹${w.amount}\n<b>Payment:</b> ${w.upi_id}\n\n<i>Processed at ${getTime()}</i>`, []
+            `<b>💸 Withdraw Request</b>\n\n<b>📊 Request ID: ${requestId}</b>\n<b>💰 Amount: ₹${w.amount}</b>\n<b>💳 Payment: ${w.upi_id}</b>\n\n<b>✅ Approved</b>`, []
           );
-          await sendMsg(w.telegram_id,
-            `<b>🎉 Withdrawal Approved!</b>\n\n<b>Your withdrawal of ₹${parseFloat(w.amount).toFixed(2)} has been processed successfully.</b>\n\n<i>Funds will be credited within 24 hours.</i>`
-          );
+          await sendMsg(w.telegram_id, `<b>Your withdrawal request of ₹${parseFloat(w.amount).toFixed(2)} has been approved! ✅</b>`);
+          await answerAlert(callback_query.id, '✅ Approved!');
         }
 
       } else if (data.startsWith('admin_cancel_')) {
-        if (chat_id !== ADMIN_ID) return res.send('OK');
+        if (chat_id !== ADMIN_ID) { await answerAlert(callback_query.id, '❌ Unauthorized!'); return res.send('OK'); }
         const requestId = data.replace('admin_cancel_', '');
         const withdrawals = await dbGet('withdrawals', `request_id=eq.${requestId}`);
         if (withdrawals.length > 0) {
           const w = withdrawals[0];
-          if (w.status !== 'pending') return res.send('OK');
+          if (w.status !== 'pending') { await answerAlert(callback_query.id, '⚠️ Already processed!'); return res.send('OK'); }
           await dbPatch('withdrawals', `request_id=eq.${requestId}`, { status: 'cancelled' });
           const users = await dbGet('users', `telegram_id=eq.${w.telegram_id}`);
           if (users.length > 0) {
@@ -236,44 +362,40 @@ app.post('/webhook', async (req, res) => {
             await dbPatch('users', `telegram_id=eq.${w.telegram_id}`, { balance: refundBal });
           }
           await editMsg(ADMIN_ID, message_id,
-            `<b>❌ Withdrawal Cancelled</b>\n\n<b>ID:</b> ${requestId}\n<b>Amount:</b> ₹${w.amount}\n\n<i>Amount refunded to user wallet.</i>`, []
+            `<b>💸 Withdraw Request</b>\n\n<b>📊 Request ID: ${requestId}</b>\n<b>💰 Amount: ₹${w.amount}</b>\n<b>💳 Payment: ${w.upi_id}</b>\n\n<b>❌ Cancelled</b>`, []
           );
-          await sendMsg(w.telegram_id,
-            `<b>❌ Withdrawal Declined</b>\n\n<b>Your withdrawal of ₹${parseFloat(w.amount).toFixed(2)} was not processed.</b>\n\n<b>✅ ₹${parseFloat(w.amount).toFixed(2)} has been refunded to your wallet.</b>`
-          );
+          await sendMsg(w.telegram_id, `<b>❌ Your withdraw request failed. Please contact CashFlix support.</b>\n\n<b>💰 ₹${parseFloat(w.amount).toFixed(2)} has been refunded to your wallet!</b>`);
+          await answerAlert(callback_query.id, '❌ Cancelled!');
         }
+
+      } else {
+        await answerAlert(callback_query.id, '');
       }
       return res.send('OK');
     }
 
     if (!message) return res.send('OK');
     const chat_id = message.chat.id.toString();
-    const name = sanitize(message.from?.first_name || 'User');
+    const name = sanitize(message.from.first_name || 'User');
 
     if (message.contact) {
       const phone = message.contact.phone_number.replace(/\D/g, '').replace(/^91/, '');
       if (message.contact.user_id && message.contact.user_id.toString() !== chat_id) {
-        await sendMsg(chat_id, `<b>⚠️ Please share your own contact number only.</b>`);
+        await sendMsg(chat_id, `<b>❌ Please share your own contact only!</b>`);
         return res.send('OK');
       }
       const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
       if (users.length === 0) {
         const existing = await dbGet('users', `phone=eq.${phone}`);
         if (existing.length > 0) {
-          await sendMsg(chat_id, `<b>⚠️ This number is already registered with another account.</b>`);
+          await sendMsg(chat_id, `<b>❌ This phone number is already registered!</b>`);
           return res.send('OK');
         }
         await dbPost('users', { telegram_id: chat_id, name, phone, balance: 0, lifetime_earnings: 0 });
-        await sendMsg(chat_id,
-          `<b>🎉 Welcome to Cashyfy, ${name}!</b>\n\n<b>Your wallet is ready.</b>\n\n<b>📱 Phone:</b> ${phone}\n<b>💰 Balance:</b> ₹0.00\n\n<i>Complete offers to earn cashback!</i>`,
-          mainKeyboard
-        );
+        await sendMsg(chat_id, `<b>✅ Registration successful! You can now use the bot.</b>`, mainKeyboard);
+        await sendMsg(chat_id, `<b>👤 Profile</b>\n\n<b>🙌🏻 User: ${name} ⚡</b>\n<b>💰 Balance: ₹0.00</b>\n<b>🪢 Lifetime Earnings: ₹0.00</b>\n<b>📱 Phone: ${phone}</b>`, mainKeyboard);
       } else {
-        const u = users[0];
-        await sendMsg(chat_id,
-          `<b>✅ Already Registered</b>\n\n<b>Welcome back, ${u.name}!</b>\n<b>💰 Balance:</b> ₹${parseFloat(u.balance).toFixed(2)}`,
-          mainKeyboard
-        );
+        await sendMsg(chat_id, `<b>✅ Already registered!</b>`, mainKeyboard);
       }
       return res.send('OK');
     }
@@ -283,411 +405,27 @@ app.post('/webhook', async (req, res) => {
 
     if (userState[chat_id]) {
       const state = userState[chat_id].state;
+      const mid = userState[chat_id].message_id;
 
       if (state === 'set_upi') {
         if (isValidUPI(text)) {
           await dbPatch('users', `telegram_id=eq.${chat_id}`, { upi_id: text });
           delete userState[chat_id];
-          await sendMsg(chat_id, `<b>✅ UPI ID Updated</b>\n\n<b>💳 UPI:</b> ${text}`, mainKeyboard);
+          await sendMsg(chat_id, `<b>✅ UPI ID updated successfully!</b>\n\n<b>💳 UPI ID: ${text}</b>`, mainKeyboard);
         } else {
-          await sendMsg(chat_id, `<b>⚠️ Invalid UPI format.</b>\n\nExample: <code>name@okaxis</code>`);
+          await sendMsg(chat_id, `<b>❌ Invalid UPI format! Please try again.\n\nExample: john.doe@okaxis</b>`);
         }
         return res.send('OK');
 
       } else if (state === 'set_bank_account') {
         if (/^\d{9,18}$/.test(text)) {
-          userState[chat_id] = { state: 'set_bank_ifsc', account: text, timestamp: Date.now() };
-          await sendMsg(chat_id, `<b>🏦 Enter your IFSC Code:</b>\n\nExample: <code>SBIN0001234</code>`);
+          userState[chat_id] = { state: 'set_bank_ifsc', account: text, message_id: null, timestamp: Date.now() };
+          await sendMsg(chat_id, `<b>🏦 Please enter your IFSC code:</b>`);
         } else {
-          await sendMsg(chat_id, `<b>⚠️ Invalid account number. Please try again.</b>`);
+          await sendMsg(chat_id, `<b>❌ Invalid account number! Please enter again:</b>`);
         }
         return res.send('OK');
 
       } else if (state === 'set_bank_ifsc') {
         if (isValidIFSC(text)) {
-          const account = userState[chat_id].account;
-          await dbPatch('users', `telegram_id=eq.${chat_id}`, { bank_account: account, bank_ifsc: text.toUpperCase() });
-          delete userState[chat_id];
-          await sendMsg(chat_id, `<b>✅ Bank Details Saved</b>\n\n<b>🏦 Account:</b> ${account}\n<b>📋 IFSC:</b> ${text.toUpperCase()}`, mainKeyboard);
-        } else {
-          await sendMsg(chat_id, `<b>⚠️ Invalid IFSC code.</b>\n\nExample: <code>SBIN0001234</code>`);
-        }
-        return res.send('OK');
-
-      } else if (state === 'withdraw_amount') {
-        const amt = parseFloat(text);
-        const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
-        if (users.length > 0) {
-          const u = users[0];
-          if (isNaN(amt) || amt < 10) {
-            await sendMsg(chat_id, `<b>⚠️ Minimum withdrawal amount is ₹10.</b>`);
-          } else if (amt > parseFloat(u.balance)) {
-            await sendMsg(chat_id, `<b>⚠️ Insufficient balance.</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}`);
-          } else {
-            const method = userState[chat_id].method;
-            const payment = userState[chat_id].payment;
-            const requestId = getRequestId();
-            const newBal = parseFloat(u.balance) - amt;
-            await dbPost('withdrawals', { telegram_id: chat_id, amount: amt, upi_id: payment, status: 'pending', request_id: requestId });
-            await dbPatch('users', `telegram_id=eq.${chat_id}`, { balance: newBal < 0 ? 0 : newBal });
-            delete userState[chat_id];
-            await sendMsg(chat_id,
-              `<b>⏳ Withdrawal Requested</b>\n\n<b>💰 Amount:</b> ₹${amt}\n<b>📱 Method:</b> ${method === 'upi' ? 'UPI' : 'Bank Transfer'}\n<b>💳 Payment:</b> ${payment}\n<b>🔖 Reference:</b> ${requestId}\n\n<i>You'll be notified once processed.</i>`,
-              mainKeyboard
-            );
-            await sendInlineMsg(ADMIN_ID,
-              `<b>💸 New Withdrawal Request</b>\n\n<b>👤 User:</b> ${u.name}\n<b>📱 Phone:</b> ${u.phone}\n<b>💰 Amount:</b> ₹${amt}\n<b>💳 Payment:</b> ${payment}\n<b>🔖 Reference:</b> ${requestId}\n<b>🕐 Time:</b> ${getTime()}`,
-              [[{ text: '✅ Approve', callback_data: `admin_approve_${requestId}` }], [{ text: '❌ Cancel', callback_data: `admin_cancel_${requestId}` }]]
-            );
-          }
-        }
-        return res.send('OK');
-
-      } else if (state === 'transfer_phone') {
-        const phone = text.trim();
-        const senders = await dbGet('users', `telegram_id=eq.${chat_id}`);
-        if (!/^[6-9]\d{9}$/.test(phone)) {
-          await sendMsg(chat_id, `<b>⚠️ Invalid phone number.</b>\n\nEnter a valid 10-digit number:`);
-        } else if (senders.length > 0 && phone === senders[0].phone) {
-          await sendMsg(chat_id, `<b>⚠️ You cannot transfer to yourself.</b>`, mainKeyboard);
-          delete userState[chat_id];
-        } else {
-          const receivers = await dbGet('users', `phone=eq.${phone}`);
-          if (receivers.length === 0) {
-            await sendMsg(chat_id, `<b>⚠️ No account found with this number.</b>\n\nThe recipient must be registered on Cashyfy.`, mainKeyboard);
-            delete userState[chat_id];
-          } else {
-            userState[chat_id] = { state: 'transfer_amount', receiver_phone: phone, receiver_name: receivers[0].name, timestamp: Date.now() };
-            await sendMsg(chat_id,
-              `<b>👤 Recipient Found</b>\n\n<b>Name:</b> ${receivers[0].name}\n<b>Phone:</b> ${maskPhone(phone)}\n\n<b>💰 Enter the amount to transfer:</b>`
-            );
-          }
-        }
-        return res.send('OK');
-
-      } else if (state === 'transfer_amount') {
-        const amt = parseFloat(text);
-        const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
-        if (users.length > 0) {
-          const u = users[0];
-          if (isNaN(amt) || amt <= 0) {
-            await sendMsg(chat_id, `<b>⚠️ Invalid amount. Please enter a valid number:</b>`);
-          } else if (amt > parseFloat(u.balance)) {
-            await sendMsg(chat_id, `<b>⚠️ Insufficient balance.</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}`);
-          } else {
-            const receiver_phone = userState[chat_id].receiver_phone;
-            const receiver_name = userState[chat_id].receiver_name;
-            delete userState[chat_id];
-            const senderNewBal = parseFloat(u.balance) - amt;
-            await dbPatch('users', `phone=eq.${u.phone}`, { balance: senderNewBal < 0 ? 0 : senderNewBal });
-            const receivers = await dbGet('users', `phone=eq.${receiver_phone}`);
-            if (receivers.length > 0) {
-              const r = receivers[0];
-              const receiverNewBal = parseFloat(r.balance) + amt;
-              await dbPatch('users', `phone=eq.${receiver_phone}`, { balance: receiverNewBal });
-              await sendMsg(r.telegram_id,
-                `<b>💰 Payment Received!</b>\n\n<b>You received ₹${amt.toFixed(2)} from ${u.name}.</b>\n\n<b>💰 Updated Balance:</b> ₹${receiverNewBal.toFixed(2)}\n\n<i>${getTime()}</i>`
-              );
-            }
-            await sendMsg(chat_id,
-              `<b>✅ Transfer Successful!</b>\n\n<b>💸 Amount:</b> ₹${amt.toFixed(2)}\n<b>👤 To:</b> ${receiver_name}\n<b>📱 Phone:</b> ${maskPhone(receiver_phone)}\n<b>💰 New Balance:</b> ₹${senderNewBal.toFixed(2)}\n\n<i>${getTime()}</i>`,
-              mainKeyboard
-            );
-          }
-        }
-        return res.send('OK');
-      }
-    }
-
-    if (text === '/start') {
-      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
-      if (users.length === 0) {
-        await fetchWithTimeout(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id,
-            text: `<b>👋 Welcome to Cashyfy!</b>\n\n<b>Complete offers, earn cashback, and withdraw anytime.</b>\n\n<i>Please share your phone number to get started.</i>`,
-            parse_mode: 'HTML',
-            reply_markup: contactKeyboard
-          })
-        });
-      } else {
-        const u = users[0];
-        await sendMsg(chat_id,
-          `<b>⚡ Welcome back, ${u.name}!</b>\n\n<b>💰 Balance:</b> ₹${parseFloat(u.balance).toFixed(2)}\n<b>🏆 Lifetime Earnings:</b> ₹${parseFloat(u.lifetime_earnings).toFixed(2)}\n<b>📱 Phone:</b> ${u.phone}`,
-          mainKeyboard
-        );
-      }
-
-    } else if (text === '👤 Profile') {
-      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
-      if (users.length > 0) {
-        const u = users[0];
-        await sendInlineMsg(chat_id,
-          `<b>👤 Your Profile</b>\n\n<b>Name:</b> ${u.name}\n<b>Phone:</b> ${u.phone}\n<b>💰 Balance:</b> ₹${parseFloat(u.balance).toFixed(2)}\n<b>🏆 Lifetime Earnings:</b> ₹${parseFloat(u.lifetime_earnings).toFixed(2)}\n\n<b>Payment Details</b>\n<b>💳 UPI:</b> ${u.upi_id || 'Not set'}\n<b>🏦 Bank:</b> ${u.bank_account ? u.bank_account + ' | ' + u.bank_ifsc : 'Not set'}`,
-          [[{ text: '💳 Update UPI', callback_data: 'set_upi' }], [{ text: '🏦 Update Bank', callback_data: 'set_bank' }]]
-        );
-      }
-
-    } else if (text === '💰 Withdraw') {
-      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
-      if (users.length > 0) {
-        const u = users[0];
-        if (parseFloat(u.balance) < 10) {
-          await sendMsg(chat_id,
-            `<b>⚠️ Insufficient Balance</b>\n\n<b>💰 Current Balance:</b> ₹${parseFloat(u.balance).toFixed(2)}\n\n<i>Minimum withdrawal is ₹10.</i>`,
-            mainKeyboard
-          );
-        } else if (u.upi_id && u.bank_account) {
-          await sendInlineMsg(chat_id,
-            `<b>💸 Withdrawal</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}\n\n<b>Select payment method:</b>`,
-            [[{ text: '💳 UPI Transfer', callback_data: 'withdraw_upi' }], [{ text: '🏦 Bank Transfer', callback_data: 'withdraw_bank' }]]
-          );
-        } else if (u.upi_id) {
-          userState[chat_id] = { state: 'withdraw_amount', method: 'upi', payment: u.upi_id, timestamp: Date.now() };
-          await sendMsg(chat_id, `<b>💸 Enter Withdrawal Amount</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}\n<b>Minimum:</b> ₹10`);
-        } else if (u.bank_account) {
-          userState[chat_id] = { state: 'withdraw_amount', method: 'bank', payment: `${u.bank_account} | ${u.bank_ifsc}`, timestamp: Date.now() };
-          await sendMsg(chat_id, `<b>💸 Enter Withdrawal Amount</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}\n<b>Minimum:</b> ₹10`);
-        } else {
-          await sendInlineMsg(chat_id,
-            `<b>⚠️ No Payment Method</b>\n\nPlease add a payment method first.`,
-            [[{ text: '💳 Add UPI', callback_data: 'set_upi' }], [{ text: '🏦 Add Bank', callback_data: 'set_bank' }]]
-          );
-        }
-      }
-
-    } else if (text === '🔄 Transfer') {
-      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
-      if (users.length > 0) {
-        const u = users[0];
-        if (parseFloat(u.balance) <= 0) {
-          await sendMsg(chat_id,
-            `<b>⚠️ Insufficient Balance</b>\n\n<b>💰 Current Balance:</b> ₹${parseFloat(u.balance).toFixed(2)}`,
-            mainKeyboard
-          );
-        } else {
-          userState[chat_id] = { state: 'transfer_phone', timestamp: Date.now() };
-          await sendMsg(chat_id,
-            `<b>🔄 Transfer Funds</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}\n\n<b>📱 Enter recipient's phone number:</b>`
-          );
-        }
-      }
-
-    } else if (text === '📊 History') {
-      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
-      if (users.length > 0) {
-        const u = users[0];
-        const conversions = await dbGet('conversions', `telegram_id=eq.${u.phone}&order=created_at.desc&limit=5`);
-        if (conversions.length === 0) {
-          await sendMsg(chat_id, `<b>📊 Transaction History</b>\n\n<i>No transactions yet. Complete offers to earn cashback!</i>`, mainKeyboard);
-        } else {
-          let msg = `<b>📊 Recent Transactions</b>\n\n`;
-          conversions.forEach((c, i) => {
-            const date = new Date(c.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' });
-            msg += `<b>${i+1}.</b> ${c.offer_name} — <b>₹${c.amount}</b> — ${date}\n`;
-          });
-          msg += `\n<i>Visit cashyfy.site for full history.</i>`;
-          await sendMsg(chat_id, msg, mainKeyboard);
-        }
-      }
-
-    } else if (text.startsWith('/pause ') && chat_id === ADMIN_ID) {
-      const offerName = text.replace('/pause ', '').trim();
-      const existing = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`);
-      if (existing.length > 0) { await dbPatch('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`, { is_active: false }); }
-      else { await dbPost('offer_status', { offer_name: offerName, is_active: false }); }
-      await sendMsg(ADMIN_ID, `<b>⏸️ ${offerName} paused.</b>`);
-
-    } else if (text.startsWith('/resume ') && chat_id === ADMIN_ID) {
-      const offerName = text.replace('/resume ', '').trim();
-      const existing = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`);
-      if (existing.length > 0) { await dbPatch('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`, { is_active: true }); }
-      else { await dbPost('offer_status', { offer_name: offerName, is_active: true }); }
-      await sendMsg(ADMIN_ID, `<b>▶️ ${offerName} resumed.</b>`);
-
-    } else if (text === '/offers' && chat_id === ADMIN_ID) {
-      const offers = await dbGet('offer_status', `order=offer_name.asc`);
-      if (offers.length === 0) { await sendMsg(ADMIN_ID, `<b>📋 No offers configured.</b>`); }
-      else {
-        let msg = `<b>📋 Offer Status</b>\n\n`;
-        offers.forEach(o => { msg += `${o.is_active ? '🟢' : '🔴'} <b>${o.offer_name}</b> — ${o.is_active ? 'Active' : 'Paused'}\n`; });
-        await sendMsg(ADMIN_ID, msg);
-      }
-
-    } else if (text === '/stats' && chat_id === ADMIN_ID) {
-      const users = await dbGet('users', `select=balance,lifetime_earnings`);
-      const totalBalance = users.reduce((s, u) => s + parseFloat(u.balance || 0), 0);
-      const totalEarnings = users.reduce((s, u) => s + parseFloat(u.lifetime_earnings || 0), 0);
-      await sendMsg(ADMIN_ID,
-        `<b>📊 Platform Stats</b>\n\n<b>👥 Total Users:</b> ${users.length}\n<b>💰 Total Balance:</b> ₹${totalBalance.toFixed(2)}\n<b>🏆 Total Earnings:</b> ₹${totalEarnings.toFixed(2)}`
-      );
-    }
-
-  } catch(e) { console.error(e); }
-  res.send('OK');
-});
-
-// ✅ Offer endpoints
-app.post('/refer/create', async (req, res) => {
-  try {
-    const { offer_name, referrer_phone, user_payout, my_payout } = req.body;
-    if (!offer_name || !referrer_phone) return res.json({ success: false });
-    const code = generateReferCode(offer_name);
-    await dbPost('wallet_referrals', { code, offer_name, referrer_phone, user_payout: user_payout || 0, my_payout: my_payout || 0 });
-    const slug = offerSlugMap[offer_name] || offer_name;
-    const landing_url = `https://cashyfy.site/offer/${slug}?source=${code}`;
-    res.json({ success: true, code, landing_url });
-  } catch(e) { res.json({ success: false }); }
-});
-
-app.get('/refer/amount', async (req, res) => {
-  try {
-    const { code } = req.query;
-    if (!code) return res.json({ success: false });
-    const referral = await dbGet('wallet_referrals', `code=eq.${code}`);
-    if (referral.length === 0) return res.json({ success: false });
-    res.json({ success: true, user_payout: referral[0].user_payout, my_payout: referral[0].my_payout, offer_name: referral[0].offer_name });
-  } catch(e) { res.json({ success: false }); }
-});
-
-app.post('/click', async (req, res) => {
-  try {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    if (!rateLimit(ip, 30, 60000)) return res.status(429).json({ success: false });
-    const { click_id, offer_name, refer_code, phone } = req.body;
-    if (!click_id || !offer_name) return res.json({ success: false });
-    let referred_by = null, user_payout = 0, my_payout = 0;
-    if (refer_code) {
-      const referral = await dbGet('wallet_referrals', `code=eq.${refer_code}`);
-      if (referral.length > 0) {
-        referred_by = referral[0].referrer_phone;
-        user_payout = referral[0].user_payout;
-        my_payout = referral[0].my_payout;
-      }
-    }
-    await dbPost('clicks', { click_id, offer_name: sanitize(offer_name), phone: phone || null, referred_by, user_payout, my_payout });
-    res.json({ success: true });
-  } catch(e) { res.json({ success: false }); }
-});
-
-app.get('/offer-status', async (req, res) => {
-  try {
-    const { offer } = req.query;
-    if (!offer) return res.json({ is_active: true });
-    const result = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offer)}`);
-    if (result.length > 0) { res.json({ is_active: result[0].is_active }); }
-    else { res.json({ is_active: true }); }
-  } catch(e) { res.json({ is_active: true }); }
-});
-
-app.get('/offers-list', async (req, res) => {
-  try {
-    res.json({ success: true, offers: Object.keys(offerConfig) });
-  } catch(e) { res.json({ success: false }); }
-});
-
-app.get('/offer-info', async (req, res) => {
-  try {
-    const { offer } = req.query;
-    if (!offer) return res.json({ success: false });
-    const config = offerConfig[offer];
-    if (!config) return res.json({ success: false });
-    const statusResult = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offer)}`);
-    const is_active = statusResult.length > 0 ? statusResult[0].is_active : true;
-    res.json({ success: true, payout: config.trialAmt, is_active });
-  } catch(e) { res.json({ success: false }); }
-});
-
-app.get('/wallet-tracker', async (req, res) => {
-  try {
-    const { phone } = req.query;
-    if (!phone) return res.json({ success: false });
-    const conversions = await dbGet('conversions', `click_id=like.${encodeURIComponent(phone)}%&order=created_at.desc`);
-    if (conversions.length === 0) return res.json({ success: false });
-    res.json({
-      success: true,
-      conversions: conversions.map(c => ({
-        offer_name: c.offer_name, amount: c.amount,
-        status: c.amount > 0 ? 'paid' : 'pending', time: c.created_at
-      }))
-    });
-  } catch(e) { res.json({ success: false }); }
-});
-
-app.get('/postback', async (req, res) => {
-  try {
-    const { click_id = 'N/A', event = 'N/A', token } = req.query;
-    if (token !== POSTBACK_TOKEN) return res.status(403).send('Forbidden');
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    if (!rateLimit(ip, 50, 60000)) return res.status(429).send('Too Many Requests');
-    console.log('POSTBACK:', req.query);
-    let runTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
-    let offer = 'Unknown', phone = null, referred_by = null, user_payout_custom = 0, my_payout_custom = 0;
-    try {
-      const clicks = await dbGet('clicks', `click_id=eq.${encodeURIComponent(click_id)}&order=created_at.desc&limit=1`);
-      if (clicks.length > 0) {
-        offer = clicks[0].offer_name; phone = clicks[0].phone;
-        runTime = new Date(clicks[0].created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
-        referred_by = clicks[0].referred_by;
-        user_payout_custom = clicks[0].user_payout || 0;
-        my_payout_custom = clicks[0].my_payout || 0;
-      }
-    } catch(e) {}
-    if (!phone) return res.send('OK');
-    const config = offerConfig[offer] || { installAmt: 0, trialAmt: 0, installBalance: false, trialBalance: false, installComment: `${offer} Install`, trialComment: `${offer} Complete` };
-    let amount = 0, comment = '', addBalance = false;
-    const eventName = event?.trim().toLowerCase();
-    if (['web', 'initial', 'install', 'e1', 'default'].includes(eventName)) {
-      amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
-    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'deposit', 'trial_payment_successful'].includes(eventName)) {
-      comment = config.trialComment; addBalance = config.trialBalance;
-      amount = referred_by ? user_payout_custom : (user_payout_custom > 0 ? user_payout_custom : config.trialAmt || 0);
-    } else {
-      amount = parseFloat(req.query.amount || 0); comment = `${offer} Complete`; addBalance = true;
-    }
-    await dbPost('conversions', { telegram_id: phone, click_id, offer_name: offer, amount, event });
-    const users = await dbGet('users', `phone=eq.${phone}`);
-    const userPayment = users.length > 0 ? 'Success' : 'Failed';
-    if (users.length > 0) {
-      const u = users[0];
-      if (addBalance && amount > 0) {
-        const newBal = parseFloat(u.balance) + amount;
-        const newLife = parseFloat(u.lifetime_earnings) + amount;
-        await dbPatch('users', `phone=eq.${phone}`, { balance: newBal, lifetime_earnings: newLife });
-        await sendMsg(u.telegram_id,
-          `<b>🎉 Cashback Credited!</b>\n\n<b>💶 Amount:</b> ₹${amount}\n<b>💰 New Balance:</b> ₹${newBal.toFixed(2)}\n\n<b>📝 Note:</b> ${comment}`
-        );
-      }
-      if (referred_by && my_payout_custom > 0 && addBalance) {
-        const referrers = await dbGet('users', `phone=eq.${referred_by}`);
-        if (referrers.length > 0) {
-          const r = referrers[0];
-          const newRefBal = parseFloat(r.balance) + my_payout_custom;
-          const newRefLife = parseFloat(r.lifetime_earnings) + my_payout_custom;
-          await dbPatch('users', `phone=eq.${referred_by}`, { balance: newRefBal, lifetime_earnings: newRefLife });
-          await sendMsg(r.telegram_id,
-            `<b>🎁 Referral Bonus!</b>\n\n<b>💶 Amount:</b> ₹${my_payout_custom}\n<b>💰 New Balance:</b> ₹${newRefBal.toFixed(2)}\n\n<b>📝 Note:</b> Referral Bonus — ${offer}`
-          );
-        }
-      }
-    }
-    const trackTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
-    const msg = referred_by
-      ? `<b>📊 Conversion</b>\n\n<b>🎯 Offer:</b> ${offer}\n\n<b>User:</b> ${maskPhone(phone)}\n<b>Amount:</b> ₹${amount}\n<b>Status:</b> ${userPayment}\n\n<b>Referrer:</b> ${maskPhone(referred_by)}\n<b>Bonus:</b> ₹${my_payout_custom}\n\n<b>Run Time:</b> ${runTime}\n<b>Track Time:</b> ${trackTime}\n\n<i>Powered by Cashyfy</i>`
-      : `<b>📊 Conversion</b>\n\n<b>🎯 Offer:</b> ${offer}\n\n<b>User:</b> ${maskPhone(phone)}\n<b>Amount:</b> ₹${amount}\n<b>Status:</b> ${userPayment}\n\n<b>Run Time:</b> ${runTime}\n<b>Track Time:</b> ${trackTime}\n\n<i>Powered by Cashyfy</i>`;
-    await sendMsg(CHAT_ID, msg);
-  } catch(e) { console.error(e); }
-  res.send('OK');
-});
-
-app.get('/', (req, res) => res.send('CashyFy Wallet Bot Running! ✅'));
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Running on port ${PORT}`));
-
-setInterval(async () => {
-  try { await fetchWithTimeout('https://cashyfy-1.onrender.com/'); } catch(e) {}
-}, 14 * 60 * 1000);
-    
+          const account = userSta
