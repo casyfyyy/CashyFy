@@ -416,4 +416,278 @@ app.post('/webhook', async (req, res) => {
         const u = users[0];
         await sendMsg(chat_id,
           `<b>⚡ Welcome back, ${u.name}!</b>\n\n<b>💰 Balance:</b> ₹${parseFloat(u.balance).toFixed(2)}\n<b>🏆 Lifetime Earnings:</b> ₹${parseFloat(u.lifetime_earnings).toFixed(2)}\n<b>📱 Phone:</b> ${u.phone}`,
+          mainKeyboard
+        );
+      }
+
+    } else if (text === '👤 Profile') {
+      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+      if (users.length > 0) {
+        const u = users[0];
+        await sendInlineMsg(chat_id,
+          `<b>👤 Your Profile</b>\n\n<b>Name:</b> ${u.name}\n<b>Phone:</b> ${u.phone}\n<b>💰 Balance:</b> ₹${parseFloat(u.balance).toFixed(2)}\n<b>🏆 Lifetime Earnings:</b> ₹${parseFloat(u.lifetime_earnings).toFixed(2)}\n\n<b>Payment Details</b>\n<b>💳 UPI:</b> ${u.upi_id || 'Not set'}\n<b>🏦 Bank:</b> ${u.bank_account ? u.bank_account + ' | ' + u.bank_ifsc : 'Not set'}`,
+          [[{ text: '💳 Update UPI', callback_data: 'set_upi' }], [{ text: '🏦 Update Bank', callback_data: 'set_bank' }]]
+        );
+      }
+
+    } else if (text === '💰 Withdraw') {
+      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+      if (users.length > 0) {
+        const u = users[0];
+        if (parseFloat(u.balance) < 10) {
+          await sendMsg(chat_id,
+            `<b>⚠️ Insufficient Balance</b>\n\n<b>💰 Current Balance:</b> ₹${parseFloat(u.balance).toFixed(2)}\n\n<i>Minimum withdrawal is ₹10.</i>`,
+            mainKeyboard
+          );
+        } else if (u.upi_id && u.bank_account) {
+          await sendInlineMsg(chat_id,
+            `<b>💸 Withdrawal</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}\n\n<b>Select payment method:</b>`,
+            [[{ text: '💳 UPI Transfer', callback_data: 'withdraw_upi' }], [{ text: '🏦 Bank Transfer', callback_data: 'withdraw_bank' }]]
+          );
+        } else if (u.upi_id) {
+          userState[chat_id] = { state: 'withdraw_amount', method: 'upi', payment: u.upi_id, timestamp: Date.now() };
+          await sendMsg(chat_id, `<b>💸 Enter Withdrawal Amount</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}\n<b>Minimum:</b> ₹10`);
+        } else if (u.bank_account) {
+          userState[chat_id] = { state: 'withdraw_amount', method: 'bank', payment: `${u.bank_account} | ${u.bank_ifsc}`, timestamp: Date.now() };
+          await sendMsg(chat_id, `<b>💸 Enter Withdrawal Amount</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}\n<b>Minimum:</b> ₹10`);
+        } else {
+          await sendInlineMsg(chat_id,
+            `<b>⚠️ No Payment Method</b>\n\nPlease add a payment method first.`,
+            [[{ text: '💳 Add UPI', callback_data: 'set_upi' }], [{ text: '🏦 Add Bank', callback_data: 'set_bank' }]]
+          );
+        }
+      }
+
+    } else if (text === '🔄 Transfer') {
+      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+      if (users.length > 0) {
+        const u = users[0];
+        if (parseFloat(u.balance) <= 0) {
+          await sendMsg(chat_id,
+            `<b>⚠️ Insufficient Balance</b>\n\n<b>💰 Current Balance:</b> ₹${parseFloat(u.balance).toFixed(2)}`,
+            mainKeyboard
+          );
+        } else {
+          userState[chat_id] = { state: 'transfer_phone', timestamp: Date.now() };
+          await sendMsg(chat_id,
+            `<b>🔄 Transfer Funds</b>\n\n<b>💰 Available:</b> ₹${parseFloat(u.balance).toFixed(2)}\n\n<b>📱 Enter recipient's phone number:</b>`
+          );
+        }
+      }
+
+    } else if (text === '📊 History') {
+      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+      if (users.length > 0) {
+        const u = users[0];
+        const conversions = await dbGet('conversions', `telegram_id=eq.${u.phone}&order=created_at.desc&limit=5`);
+        if (conversions.length === 0) {
+          await sendMsg(chat_id, `<b>📊 Transaction History</b>\n\n<i>No transactions yet. Complete offers to earn cashback!</i>`, mainKeyboard);
+        } else {
+          let msg = `<b>📊 Recent Transactions</b>\n\n`;
+          conversions.forEach((c, i) => {
+            const date = new Date(c.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' });
+            msg += `<b>${i+1}.</b> ${c.offer_name} — <b>₹${c.amount}</b> — ${date}\n`;
+          });
+          msg += `\n<i>Visit cashyfy.site for full history.</i>`;
+          await sendMsg(chat_id, msg, mainKeyboard);
+        }
+      }
+
+    } else if (text.startsWith('/pause ') && chat_id === ADMIN_ID) {
+      const offerName = text.replace('/pause ', '').trim();
+      const existing = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`);
+      if (existing.length > 0) { await dbPatch('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`, { is_active: false }); }
+      else { await dbPost('offer_status', { offer_name: offerName, is_active: false }); }
+      await sendMsg(ADMIN_ID, `<b>⏸️ ${offerName} paused.</b>`);
+
+    } else if (text.startsWith('/resume ') && chat_id === ADMIN_ID) {
+      const offerName = text.replace('/resume ', '').trim();
+      const existing = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`);
+      if (existing.length > 0) { await dbPatch('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`, { is_active: true }); }
+      else { await dbPost('offer_status', { offer_name: offerName, is_active: true }); }
+      await sendMsg(ADMIN_ID, `<b>▶️ ${offerName} resumed.</b>`);
+
+    } else if (text === '/offers' && chat_id === ADMIN_ID) {
+      const offers = await dbGet('offer_status', `order=offer_name.asc`);
+      if (offers.length === 0) { await sendMsg(ADMIN_ID, `<b>📋 No offers configured.</b>`); }
+      else {
+        let msg = `<b>📋 Offer Status</b>\n\n`;
+        offers.forEach(o => { msg += `${o.is_active ? '🟢' : '🔴'} <b>${o.offer_name}</b> — ${o.is_active ? 'Active' : 'Paused'}\n`; });
+        await sendMsg(ADMIN_ID, msg);
+      }
+
+    } else if (text === '/stats' && chat_id === ADMIN_ID) {
+      const users = await dbGet('users', `select=balance,lifetime_earnings`);
+      const totalBalance = users.reduce((s, u) => s + parseFloat(u.balance || 0), 0);
+      const totalEarnings = users.reduce((s, u) => s + parseFloat(u.lifetime_earnings || 0), 0);
+      await sendMsg(ADMIN_ID,
+        `<b>📊 Platform Stats</b>\n\n<b>👥 Total Users:</b> ${users.length}\n<b>💰 Total Balance:</b> ₹${totalBalance.toFixed(2)}\n<b>🏆 Total Earnings:</b> ₹${totalEarnings.toFixed(2)}`
+      );
+    }
+
+  } catch(e) { console.error(e); }
+  res.send('OK');
+});
+
+// ✅ Offer endpoints
+app.post('/refer/create', async (req, res) => {
+  try {
+    const { offer_name, referrer_phone, user_payout, my_payout } = req.body;
+    if (!offer_name || !referrer_phone) return res.json({ success: false });
+    const code = generateReferCode(offer_name);
+    await dbPost('wallet_referrals', { code, offer_name, referrer_phone, user_payout: user_payout || 0, my_payout: my_payout || 0 });
+    const slug = offerSlugMap[offer_name] || offer_name;
+    const landing_url = `https://cashyfy.site/offer/${slug}?source=${code}`;
+    res.json({ success: true, code, landing_url });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/refer/amount', async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) return res.json({ success: false });
+    const referral = await dbGet('wallet_referrals', `code=eq.${code}`);
+    if (referral.length === 0) return res.json({ success: false });
+    res.json({ success: true, user_payout: referral[0].user_payout, my_payout: referral[0].my_payout, offer_name: referral[0].offer_name });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.post('/click', async (req, res) => {
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (!rateLimit(ip, 30, 60000)) return res.status(429).json({ success: false });
+    const { click_id, offer_name, refer_code, phone } = req.body;
+    if (!click_id || !offer_name) return res.json({ success: false });
+    let referred_by = null, user_payout = 0, my_payout = 0;
+    if (refer_code) {
+      const referral = await dbGet('wallet_referrals', `code=eq.${refer_code}`);
+      if (referral.length > 0) {
+        referred_by = referral[0].referrer_phone;
+        user_payout = referral[0].user_payout;
+        my_payout = referral[0].my_payout;
+      }
+    }
+    await dbPost('clicks', { click_id, offer_name: sanitize(offer_name), phone: phone || null, referred_by, user_payout, my_payout });
+    res.json({ success: true });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/offer-status', async (req, res) => {
+  try {
+    const { offer } = req.query;
+    if (!offer) return res.json({ is_active: true });
+    const result = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offer)}`);
+    if (result.length > 0) { res.json({ is_active: result[0].is_active }); }
+    else { res.json({ is_active: true }); }
+  } catch(e) { res.json({ is_active: true }); }
+});
+
+app.get('/offers-list', async (req, res) => {
+  try {
+    res.json({ success: true, offers: Object.keys(offerConfig) });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/offer-info', async (req, res) => {
+  try {
+    const { offer } = req.query;
+    if (!offer) return res.json({ success: false });
+    const config = offerConfig[offer];
+    if (!config) return res.json({ success: false });
+    const statusResult = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offer)}`);
+    const is_active = statusResult.length > 0 ? statusResult[0].is_active : true;
+    res.json({ success: true, payout: config.trialAmt, is_active });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/wallet-tracker', async (req, res) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) return res.json({ success: false });
+    const conversions = await dbGet('conversions', `click_id=like.${encodeURIComponent(phone)}%&order=created_at.desc`);
+    if (conversions.length === 0) return res.json({ success: false });
+    res.json({
+      success: true,
+      conversions: conversions.map(c => ({
+        offer_name: c.offer_name, amount: c.amount,
+        status: c.amount > 0 ? 'paid' : 'pending', time: c.created_at
+      }))
+    });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/postback', async (req, res) => {
+  try {
+    const { click_id = 'N/A', event = 'N/A', token } = req.query;
+    if (token !== POSTBACK_TOKEN) return res.status(403).send('Forbidden');
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (!rateLimit(ip, 50, 60000)) return res.status(429).send('Too Many Requests');
+    console.log('POSTBACK:', req.query);
+    let runTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
+    let offer = 'Unknown', phone = null, referred_by = null, user_payout_custom = 0, my_payout_custom = 0;
+    try {
+      const clicks = await dbGet('clicks', `click_id=eq.${encodeURIComponent(click_id)}&order=created_at.desc&limit=1`);
+      if (clicks.length > 0) {
+        offer = clicks[0].offer_name; phone = clicks[0].phone;
+        runTime = new Date(clicks[0].created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
+        referred_by = clicks[0].referred_by;
+        user_payout_custom = clicks[0].user_payout || 0;
+        my_payout_custom = clicks[0].my_payout || 0;
+      }
+    } catch(e) {}
+    if (!phone) return res.send('OK');
+    const config = offerConfig[offer] || { installAmt: 0, trialAmt: 0, installBalance: false, trialBalance: false, installComment: `${offer} Install`, trialComment: `${offer} Complete` };
+    let amount = 0, comment = '', addBalance = false;
+    const eventName = event?.trim().toLowerCase();
+    if (['web', 'initial', 'install', 'e1', 'default'].includes(eventName)) {
+      amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
+    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'deposit', 'trial_payment_successful'].includes(eventName)) {
+      comment = config.trialComment; addBalance = config.trialBalance;
+      amount = referred_by ? user_payout_custom : (user_payout_custom > 0 ? user_payout_custom : config.trialAmt || 0);
+    } else {
+      amount = parseFloat(req.query.amount || 0); comment = `${offer} Complete`; addBalance = true;
+    }
+    await dbPost('conversions', { telegram_id: phone, click_id, offer_name: offer, amount, event });
+    const users = await dbGet('users', `phone=eq.${phone}`);
+    const userPayment = users.length > 0 ? 'Success' : 'Failed';
+    if (users.length > 0) {
+      const u = users[0];
+      if (addBalance && amount > 0) {
+        const newBal = parseFloat(u.balance) + amount;
+        const newLife = parseFloat(u.lifetime_earnings) + amount;
+        await dbPatch('users', `phone=eq.${phone}`, { balance: newBal, lifetime_earnings: newLife });
+        await sendMsg(u.telegram_id,
+          `<b>🎉 Cashback Credited!</b>\n\n<b>💶 Amount:</b> ₹${amount}\n<b>💰 New Balance:</b> ₹${newBal.toFixed(2)}\n\n<b>📝 Note:</b> ${comment}`
+        );
+      }
+      if (referred_by && my_payout_custom > 0 && addBalance) {
+        const referrers = await dbGet('users', `phone=eq.${referred_by}`);
+        if (referrers.length > 0) {
+          const r = referrers[0];
+          const newRefBal = parseFloat(r.balance) + my_payout_custom;
+          const newRefLife = parseFloat(r.lifetime_earnings) + my_payout_custom;
+          await dbPatch('users', `phone=eq.${referred_by}`, { balance: newRefBal, lifetime_earnings: newRefLife });
+          await sendMsg(r.telegram_id,
+            `<b>🎁 Referral Bonus!</b>\n\n<b>💶 Amount:</b> ₹${my_payout_custom}\n<b>💰 New Balance:</b> ₹${newRefBal.toFixed(2)}\n\n<b>📝 Note:</b> Referral Bonus — ${offer}`
+          );
+        }
+      }
+    }
+    const trackTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
+    const msg = referred_by
+      ? `<b>📊 Conversion</b>\n\n<b>🎯 Offer:</b> ${offer}\n\n<b>User:</b> ${maskPhone(phone)}\n<b>Amount:</b> ₹${amount}\n<b>Status:</b> ${userPayment}\n\n<b>Referrer:</b> ${maskPhone(referred_by)}\n<b>Bonus:</b> ₹${my_payout_custom}\n\n<b>Run Time:</b> ${runTime}\n<b>Track Time:</b> ${trackTime}\n\n<i>Powered by Cashyfy</i>`
+      : `<b>📊 Conversion</b>\n\n<b>🎯 Offer:</b> ${offer}\n\n<b>User:</b> ${maskPhone(phone)}\n<b>Amount:</b> ₹${amount}\n<b>Status:</b> ${userPayment}\n\n<b>Run Time:</b> ${runTime}\n<b>Track Time:</b> ${trackTime}\n\n<i>Powered by Cashyfy</i>`;
+    await sendMsg(CHAT_ID, msg);
+  } catch(e) { console.error(e); }
+  res.send('OK');
+});
+
+app.get('/', (req, res) => res.send('CashyFy Wallet Bot Running! ✅'));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Running on port ${PORT}`));
+
+setInterval(async () => {
+  try { await fetchWithTimeout('https://cashyfy-1.onrender.com/'); } catch(e) {}
+}, 14 * 60 * 1000);
     
