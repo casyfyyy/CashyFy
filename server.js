@@ -30,12 +30,12 @@ const offerConfig = {
 };
 
 const offerSlugMap = {
-  'Gyan Tv': 'GV', 'PolicyBazar': 'PB', 'Bharat Ryd': 'BR',
+  'Gyan Tv': 'Gyantv', 'PolicyBazar': 'PB', 'Bharat Ryd': 'BR',
   'Jigri Super': 'JS', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
 const prefixMap = {
-  'Gyan Tv': 'GV', 'PolicyBazar': 'PB', 'Bharat Ryd': 'BR',
+  'Gyan Tv': 'Gyantv', 'PolicyBazar': 'PB', 'Bharat Ryd': 'BR',
   'Jigri Super': 'JS', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
