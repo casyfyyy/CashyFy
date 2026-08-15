@@ -35,7 +35,7 @@ const offerSlugMap = {
 };
 
 const prefixMap = {
-  'Gyan Tv': 'Gyantv', 'PolicyBazar': 'PB', 'Bharat Ryd': 'BR',
+  'Gyan Tv': 'GV', 'PolicyBazar': 'PB', 'Bharat Ryd': 'BR',
   'Jigri Super': 'JS', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
