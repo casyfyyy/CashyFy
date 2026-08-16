@@ -455,4 +455,369 @@ app.post('/webhook', async (req, res) => {
           await dbPatch('users', `telegram_id=eq.${chat_id}`, { password: hashPassword(newPass) });
           await sendSMS(u.phone, newPass);
           await answerAlert(callback_query.id,
-            `\
+            `\uD83D\uDD11 Login Details\n\nWebsite: cashyfy.site/transactions\n\nPhone: ${u.phone}\nPassword: ${newPass}\n\nUse these to login!`
+          );
+        }
+
+      } else if (data.startsWith('status_')) {
+        const requestId = data.replace('status_', '');
+        const withdrawals = await dbGet('withdrawals', `request_id=eq.${requestId}`);
+        if (withdrawals.length > 0) {
+          const w = withdrawals[0];
+          if (w.telegram_id !== chat_id && chat_id !== ADMIN_ID) {
+            await answerAlert(callback_query.id, '\u274C Unauthorized!');
+            return res.send('OK');
+          }
+          const statusEmoji = w.status === 'paid' ? '\u2705' : w.status === 'cancelled' ? '\u274C' : '\uD83D\uDD50';
+          const statusText = w.status === 'paid' ? 'Paid' : w.status === 'cancelled' ? 'Cancelled' : 'Pending';
+          await answerAlert(callback_query.id, `Status: ${statusText} ${statusEmoji}`);
+        }
+
+      } else if (data.startsWith('admin_approve_')) {
+        if (chat_id !== ADMIN_ID) { await answerAlert(callback_query.id, '\u274C Unauthorized!'); return res.send('OK'); }
+        const requestId = data.replace('admin_approve_', '');
+        const withdrawals = await dbGet('withdrawals', `request_id=eq.${requestId}`);
+        if (withdrawals.length > 0) {
+          const w = withdrawals[0];
+          if (w.status !== 'pending') { await answerAlert(callback_query.id, '\u26A0\uFE0F Already processed!'); return res.send('OK'); }
+          await dbPatch('withdrawals', `request_id=eq.${requestId}`, { status: 'paid' });
+          await editMsg(ADMIN_ID, message_id,
+            `<b>\uD83D\uDCB8 Withdraw Request</b>\n\n<b>\uD83D\uDCCA Request ID: ${requestId}</b>\n<b>\uD83D\uDCB0 Amount: \u20B9${w.amount}</b>\n<b>\uD83D\uDCB3 Payment: ${w.upi_id}</b>\n\n<b>\u2705 Approved</b>`, []
+          );
+          await sendMsg(w.telegram_id, `<b>Your withdrawal of \u20B9${parseFloat(w.amount).toFixed(2)} has been approved! \u2705</b>`);
+          await answerAlert(callback_query.id, '\u2705 Approved!');
+        }
+
+      } else if (data.startsWith('admin_cancel_')) {
+        if (chat_id !== ADMIN_ID) { await answerAlert(callback_query.id, '\u274C Unauthorized!'); return res.send('OK'); }
+        const requestId = data.replace('admin_cancel_', '');
+        const withdrawals = await dbGet('withdrawals', `request_id=eq.${requestId}`);
+        if (withdrawals.length > 0) {
+          const w = withdrawals[0];
+          if (w.status !== 'pending') { await answerAlert(callback_query.id, '\u26A0\uFE0F Already processed!'); return res.send('OK'); }
+          await dbPatch('withdrawals', `request_id=eq.${requestId}`, { status: 'cancelled' });
+          const users = await dbGet('users', `telegram_id=eq.${w.telegram_id}`);
+          if (users.length > 0) {
+            const refundBal = parseFloat(users[0].balance) + parseFloat(w.amount);
+            await dbPatch('users', `telegram_id=eq.${w.telegram_id}`, { balance: refundBal });
+          }
+          await editMsg(ADMIN_ID, message_id,
+            `<b>\uD83D\uDCB8 Withdraw Request</b>\n\n<b>\uD83D\uDCCA Request ID: ${requestId}</b>\n<b>\uD83D\uDCB0 Amount: \u20B9${w.amount}</b>\n<b>\uD83D\uDCB3 Payment: ${w.upi_id}</b>\n\n<b>\u274C Cancelled</b>`, []
+          );
+          await sendMsg(w.telegram_id, `<b>\u274C Your withdraw request failed.\n\n\uD83D\uDCB0 \u20B9${parseFloat(w.amount).toFixed(2)} has been refunded to your wallet!</b>`);
+          await answerAlert(callback_query.id, '\u274C Cancelled!');
+        }
+
+      } else {
+        await answerAlert(callback_query.id, '');
+      }
+      return res.send('OK');
+    }
+
+    if (!message) return res.send('OK');
+    const chat_id = message.chat.id.toString();
+    const name = sanitize(message.from.first_name || 'User');
+
+    if (message.contact) {
+      const phone = message.contact.phone_number.replace(/\D/g, '').replace(/^91/, '');
+      if (message.contact.user_id && message.contact.user_id.toString() !== chat_id) {
+        await sendMsg(chat_id, `<b>\u274C Please share your own contact only!</b>`);
+        return res.send('OK');
+      }
+      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+      if (users.length === 0) {
+        const existing = await dbGet('users', `phone=eq.${phone}`);
+        if (existing.length > 0) {
+          await sendMsg(chat_id, `<b>\u274C This phone number is already registered!</b>`);
+          return res.send('OK');
+        }
+        await dbPost('users', { telegram_id: chat_id, name, phone, balance: 0, lifetime_earnings: 0 });
+        await sendMsg(chat_id, `<b>\u2705 Registration successful!</b>`, mainKeyboard);
+        await sendMsg(chat_id,
+          `<b>\uD83D\uDC64 Profile</b>\n\n<b>\uD83D\uDE4C\uD83C\uDFFB User: ${name} \u26A1</b>\n<b>\uD83D\uDCB0 Balance: \u20B90.00</b>\n<b>\uD83E\uDEB2 Lifetime Earnings: \u20B90.00</b>\n<b>\uD83D\uDCF1 Phone: ${phone}</b>`,
+          mainKeyboard
+        );
+      } else {
+        await sendMsg(chat_id, `<b>\u2705 Already registered!</b>`, mainKeyboard);
+      }
+      return res.send('OK');
+    }
+
+    const text = message.text || '';
+    if (['\uD83D\uDCB0 Withdraw', '\uD83D\uDC64 Profile', '\uD83D\uDCB8 Send Money', '\uD83D\uDCCB Transaction'].includes(text)) {
+      delete userState[chat_id];
+    }
+
+    if (userState[chat_id]) {
+      const state = userState[chat_id].state;
+      const mid = userState[chat_id].message_id;
+
+      if (state === 'set_upi') {
+        if (isValidUPI(text)) {
+          await dbPatch('users', `telegram_id=eq.${chat_id}`, { upi_id: text });
+          delete userState[chat_id];
+          await sendMsg(chat_id, `<b>\u2705 UPI ID updated!\n\n\uD83D\uDCB3 UPI ID: ${text}</b>`, mainKeyboard);
+        } else {
+          await sendMsg(chat_id, `<b>\u274C Invalid UPI format!\n\nExample: john.doe@okaxis</b>`);
+        }
+        return res.send('OK');
+
+      } else if (state === 'set_bank_account') {
+        if (/^\d{9,18}$/.test(text)) {
+          userState[chat_id] = { state: 'set_bank_ifsc', account: text, timestamp: Date.now() };
+          await sendMsg(chat_id, `<b>\uD83C\uDFE6 Please enter your IFSC code:</b>`);
+        } else {
+          await sendMsg(chat_id, `<b>\u274C Invalid account number!</b>`);
+        }
+        return res.send('OK');
+
+      } else if (state === 'set_bank_ifsc') {
+        if (isValidIFSC(text)) {
+          const account = userState[chat_id].account;
+          await dbPatch('users', `telegram_id=eq.${chat_id}`, { bank_account: account, bank_ifsc: text.toUpperCase() });
+          delete userState[chat_id];
+          await sendMsg(chat_id, `<b>\u2705 Bank Details saved!\n\n\uD83C\uDFE6 Account: ${account}\n\uD83D\uDCCB IFSC: ${text.toUpperCase()}</b>`, mainKeyboard);
+        } else {
+          await sendMsg(chat_id, `<b>\u274C Invalid IFSC! Example: SBIN0001234</b>`);
+        }
+        return res.send('OK');
+
+      } else if (state === 'withdraw_amount') {
+        const amt = parseFloat(text);
+        const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+        if (users.length > 0) {
+          const u = users[0];
+          if (isNaN(amt) || amt < 10) {
+            await sendMsg(chat_id, `<b>\u274C Minimum \u20B910 required!</b>`);
+          } else if (amt > parseFloat(u.balance)) {
+            await sendMsg(chat_id, `<b>\u274C Insufficient balance!</b>`);
+          } else {
+            const method = userState[chat_id].method;
+            const payment = userState[chat_id].payment;
+            userState[chat_id] = { state: 'withdraw_confirm', amount: amt, method, payment, message_id: mid, timestamp: Date.now() };
+            const confirmMsgId = await sendInlineMsg(chat_id,
+              `<b>\u26A0\uFE0F Withdrawal Confirmation</b>\n\n<b>\uD83D\uDCB0 Amount: \u20B9${amt}</b>\n<b>\uD83D\uDCF1 Method: ${method === 'upi' ? 'UPI' : 'Bank'}</b>\n<b>\uD83D\uDCB8 ${method === 'upi' ? 'UPI ID' : 'Bank'}: ${payment}</b>`,
+              [[{ text: '\u2705 Confirm', callback_data: 'approve_withdraw' }, { text: '\u274C Cancel', callback_data: 'cancel_withdraw' }]]
+            );
+            userState[chat_id].confirmMsgId = confirmMsgId;
+            setTimeout(async () => {
+              if (confirmMsgId) await deleteMsg(chat_id, confirmMsgId);
+              if (userState[chat_id]?.state === 'withdraw_confirm') delete userState[chat_id];
+            }, 60000);
+          }
+        }
+        return res.send('OK');
+
+      } else if (state === 'transfer_phone') {
+        const phone = text.trim();
+        const senders = await dbGet('users', `telegram_id=eq.${chat_id}`);
+        if (!/^[6-9]\d{9}$/.test(phone)) {
+          await sendMsg(chat_id, `<b>\u274C Invalid phone number! Enter valid 10-digit number:</b>`);
+        } else if (senders.length > 0 && phone === senders[0].phone) {
+          await sendMsg(chat_id, `<b>\u274C You cannot send money to yourself!</b>`, mainKeyboard);
+          delete userState[chat_id];
+        } else {
+          const receivers = await dbGet('users', `phone=eq.${phone}`);
+          if (receivers.length === 0) {
+            await sendMsg(chat_id, `<b>\u274C This phone number is not registered!</b>`, mainKeyboard);
+            delete userState[chat_id];
+          } else {
+            const r = receivers[0];
+            const phoneMsgId = await sendMsg(chat_id,
+              `<b>Pay to</b>\n\n<b>Account Holder Name :</b> ${r.name}\n<b>Phone Number :</b> ${maskPhone(phone)}\n\n<b>Enter amount to sent</b>`
+            );
+            userState[chat_id] = { state: 'transfer_amount', receiver_phone: phone, receiver_name: r.name, phoneMsgId, timestamp: Date.now() };
+          }
+        }
+        return res.send('OK');
+
+      } else if (state === 'transfer_amount') {
+        const amt = parseFloat(text);
+        const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+        if (users.length > 0) {
+          const u = users[0];
+          if (isNaN(amt) || amt <= 0) {
+            await sendMsg(chat_id, `<b>\u274C Invalid amount!</b>`);
+          } else if (amt > parseFloat(u.balance)) {
+            await sendMsg(chat_id, `<b>\u274C Insufficient balance! Available: \u20B9${parseFloat(u.balance).toFixed(2)}</b>`);
+          } else {
+            if (userState[chat_id].phoneMsgId) await deleteMsg(chat_id, userState[chat_id].phoneMsgId);
+            const receiver_phone = userState[chat_id].receiver_phone;
+            const receiver_name = userState[chat_id].receiver_name;
+            userState[chat_id] = { state: 'transfer_confirm', amount: amt, receiver_phone, receiver_name, timestamp: Date.now() };
+            const confirmMsgId = await sendInlineMsg(chat_id,
+              `<b>\u26A0\uFE0F Transfer Confirmation</b>\n\n<b>\uD83D\uDCB0 Amount: \u20B9${amt}</b>\n<b>\uD83D\uDC64 To: ${receiver_name}</b>\n<b>\uD83D\uDCF1 Phone: ${maskPhone(receiver_phone)}</b>`,
+              [[{ text: '\u2705 Confirm', callback_data: 'confirm_transfer' }, { text: '\u274C Cancel', callback_data: 'cancel_transfer' }]]
+            );
+            userState[chat_id].confirmMsgId = confirmMsgId;
+            setTimeout(async () => {
+              if (confirmMsgId) await deleteMsg(chat_id, confirmMsgId);
+              if (userState[chat_id]?.state === 'transfer_confirm') delete userState[chat_id];
+            }, 60000);
+          }
+        }
+        return res.send('OK');
+      }
+    }
+
+    if (text === '/start') {
+      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+      if (users.length === 0) {
+        await fetchWithTimeout(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id,
+            text: `<b>\uD83D\uDC4B Welcome! Please share your phone number to get started:</b>`,
+            parse_mode: 'HTML',
+            reply_markup: contactKeyboard
+          })
+        });
+      } else {
+        const u = users[0];
+        await sendMsg(chat_id,
+          `<b>\uD83D\uDC64 Profile</b>\n\n<b>\uD83E\uDDD1 User: ${u.name} \u26A1</b>\n<b>\uD83D\uDCB0 Balance: \u20B9${parseFloat(u.balance).toFixed(2)}</b>\n<b>\uD83D\uDD01 Lifetime Earnings: \u20B9${parseFloat(u.lifetime_earnings).toFixed(2)}</b>\n<b>\uD83D\uDCF1 Phone: ${u.phone}</b>`,
+          mainKeyboard
+        );
+      }
+
+    } else if (text === '\uD83D\uDC64 Profile') {
+      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+      if (users.length > 0) {
+        const u = users[0];
+        await sendInlineMsg(chat_id,
+          `<b>\uD83D\uDC64 Profile</b>\n\n<b>\uD83D\uDE4C\uD83C\uDFFB User: ${u.name} \u26A1</b>\n<b>\uD83D\uDCB0 Balance: \u20B9${parseFloat(u.balance).toFixed(2)}</b>\n<b>\uD83E\uDEB2 Lifetime Earnings: \u20B9${parseFloat(u.lifetime_earnings).toFixed(2)}</b>\n<b>\uD83D\uDCF1 Phone: ${u.phone}</b>`,
+          [
+            [{ text: '\uD83D\uDCB8 UPI', callback_data: 'set_upi' }],
+            [{ text: '\uD83C\uDFE6 Bank Details', callback_data: 'set_bank' }]
+          ]
+        );
+      }
+
+    } else if (text === '\uD83D\uDCB0 Withdraw') {
+      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+      if (users.length > 0) {
+        const u = users[0];
+        if (parseFloat(u.balance) < 10) {
+          await sendMsg(chat_id, `<b>\u274C Minimum \u20B910 Required To Withdraw!</b>`, mainKeyboard);
+        } else if (u.upi_id && u.bank_account) {
+          await sendInlineMsg(chat_id,
+            `<b>Choose Payment Method:</b>`,
+            [[{ text: '\uD83D\uDCB8 UPI Transfer', callback_data: 'withdraw_upi' }], [{ text: '\uD83C\uDFE6 Bank Transfer', callback_data: 'withdraw_bank' }]]
+          );
+        } else if (u.upi_id) {
+          userState[chat_id] = { state: 'withdraw_amount', method: 'upi', payment: u.upi_id, timestamp: Date.now() };
+          await sendMsg(chat_id, `<b>Please enter withdrawal amount (Minimum: \u20B910.00):</b>`);
+        } else if (u.bank_account) {
+          userState[chat_id] = { state: 'withdraw_amount', method: 'bank', payment: `${u.bank_account} | ${u.bank_ifsc}`, timestamp: Date.now() };
+          await sendMsg(chat_id, `<b>Please enter withdrawal amount (Minimum: \u20B910.00):</b>`);
+        } else {
+          await sendInlineMsg(chat_id,
+            `<b>Choose Payment Method:</b>`,
+            [[{ text: '\uD83D\uDCB8 UPI Transfer', callback_data: 'withdraw_upi' }], [{ text: '\uD83C\uDFE6 Bank Transfer', callback_data: 'withdraw_bank' }]]
+          );
+        }
+      }
+
+    } else if (text === '\uD83D\uDCB8 Send Money') {
+      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+      if (users.length > 0) {
+        const u = users[0];
+        if (parseFloat(u.balance) <= 0) {
+          await sendMsg(chat_id, `<b>\u274C Insufficient balance!</b>`, mainKeyboard);
+        } else {
+          userState[chat_id] = { state: 'transfer_phone', timestamp: Date.now() };
+          await sendMsg(chat_id, `<b>Please enter recipient's phone number:</b>`);
+        }
+      }
+
+    } else if (text === '\uD83D\uDCCB Transaction') {
+      const users = await dbGet('users', `telegram_id=eq.${chat_id}`);
+      if (users.length > 0) {
+        const u = users[0];
+        await sendInlineMsg(chat_id,
+          `<b>\uD83D\uDCCB Transaction History</b>\n\n<b>\uD83D\uDC64 ${u.name}</b>\n<b>\uD83D\uDCF1 ${u.phone}</b>\n\n<i>View your complete transaction history or get login password below.</i>`,
+          [
+            [{ text: '\uD83D\uDCCA See Transaction History', web_app: { url: 'https://cashyfy.site/transactions' } }],
+            [{ text: '\uD83D\uDD11 See Password', callback_data: 'show_password' }]
+          ]
+        );
+      }
+
+    } else if (text.startsWith('/pause ') && chat_id === ADMIN_ID) {
+      const offerName = text.replace('/pause ', '').trim();
+      const existing = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`);
+      if (existing.length > 0) { await dbPatch('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`, { is_active: false }); }
+      else { await dbPost('offer_status', { offer_name: offerName, is_active: false }); }
+      await sendMsg(ADMIN_ID, `<b>\u23F8\uFE0F ${offerName} — Paused!</b>`);
+
+    } else if (text.startsWith('/resume ') && chat_id === ADMIN_ID) {
+      const offerName = text.replace('/resume ', '').trim();
+      const existing = await dbGet('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`);
+      if (existing.length > 0) { await dbPatch('offer_status', `offer_name=eq.${encodeURIComponent(offerName)}`, { is_active: true }); }
+      else { await dbPost('offer_status', { offer_name: offerName, is_active: true }); }
+      await sendMsg(ADMIN_ID, `<b>\u25B6\uFE0F ${offerName} — Resumed!</b>`);
+
+    } else if (text === '/offers' && chat_id === ADMIN_ID) {
+      const offers = await dbGet('offer_status', `order=offer_name.asc`);
+      if (offers.length === 0) { await sendMsg(ADMIN_ID, `<b>\uD83D\uDCCB No offers configured!</b>`); }
+      else {
+        let msg = `<b>\uD83D\uDCCB Offer Status:</b>\n\n`;
+        offers.forEach(o => { msg += `${o.is_active ? '\uD83D\uDFE2' : '\uD83D\uDD34'} <b>${o.offer_name}</b> — ${o.is_active ? 'Active' : 'Paused'}\n`; });
+        await sendMsg(ADMIN_ID, msg);
+      }
+
+    } else if (text.startsWith('/paid ') && chat_id === ADMIN_ID) {
+      const phone = text.split(' ')[1];
+      const users = await dbGet('users', `phone=eq.${phone}`);
+      if (users.length > 0) {
+        const u = users[0];
+        const withdrawals = await dbGet('withdrawals', `telegram_id=eq.${u.telegram_id}&status=eq.pending&order=created_at.desc&limit=1`);
+        if (withdrawals.length > 0) {
+          const w = withdrawals[0];
+          await dbPatch('withdrawals', `id=eq.${w.id}`, { status: 'paid' });
+          await sendMsg(u.telegram_id, `<b>Your withdrawal of \u20B9${parseFloat(w.amount).toFixed(2)} has been approved! \u2705</b>`);
+          await sendMsg(ADMIN_ID, `<b>\u2705 Done — ${u.name} (${u.phone}) — \u20B9${w.amount}</b>`);
+        } else { await sendMsg(ADMIN_ID, `<b>\u274C No pending withdrawal for ${phone}</b>`); }
+      } else { await sendMsg(ADMIN_ID, `<b>\u274C User not found: ${phone}</b>`); }
+    }
+
+  } catch(e) { console.error(e); }
+  res.send('OK');
+});
+
+app.post('/refer/create', async (req, res) => {
+  try {
+    const { offer_name, referrer_phone, user_payout, my_payout } = req.body;
+    if (!offer_name || !referrer_phone) return res.json({ success: false });
+    const code = generateReferCode(offer_name);
+    await dbPost('wallet_referrals', { code, offer_name, referrer_phone, user_payout: parseFloat(user_payout) || 0, my_payout: parseFloat(my_payout) || 0 });
+    const slug = offerSlugMap[offer_name] || offer_name;
+    const landing_url = `https://cashyfy.site/offer/${slug}?source=${code}`;
+    res.json({ success: true, code, landing_url });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/refer/amount', async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) return res.json({ success: false });
+    const referral = await dbGet('wallet_referrals', `code=eq.${code}`);
+    if (referral.length === 0) return res.json({ success: false });
+    res.json({ success: true, user_payout: referral[0].user_payout, my_payout: referral[0].my_payout, offer_name: referral[0].offer_name });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.post('/click', async (req, res) => {
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (!rateLimit(ip, 30, 60000)) return res.status(429).json({ success: false });
+    const { click_id, offer_name, refer_code, phone } = req.body;
+    if (!click_id || !offer_name) return res.json({ success: false });
+    let referred_by = null, user_payout = 0, my_payout = 0;
+    if (refer_code) {
+      const referral = await dbGet('wallet_referrals', `code=eq.${refer_code}`);
+      if (referral.length > 0) {
+        referred_by = referral[0].referrer_phone;
+        user_payout = referral[0].user_payout;
+        my
