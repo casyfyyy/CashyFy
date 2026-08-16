@@ -30,7 +30,7 @@ const offerConfig = {
 };
 
 const offerSlugMap = {
-  'Gyan Tv': 'Gyan', 'Kuku Tv': 'KT', 'Bharat Ryd': 'BR',
+  'Gyan Tv': 'Gyan', 'Kuku Tv': 'Kuku', 'Bharat Ryd': 'BR',
   'Jigri Super': 'JS', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
