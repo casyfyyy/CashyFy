@@ -22,7 +22,7 @@ const SMS_API_KEY = process.env.SMS_API_KEY || '';
 const offerConfig = {
   'Gyan Tv': { installAmt: 0.1, trialAmt: 15, installBalance: false, trialBalance: true, installComment: 'GyanTv Install', trialComment: 'GyanTv Trail' },
   'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
-  'Bharat Ryd': { installAmt: 0.1, trialAmt: 4, installBalance: false, trialBalance: true, installComment: 'BharatRdy Install', trialComment: 'BharatRdy Register' },
+  'Kuku Tv': { installAmt: 0.1, trialAmt: 15, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
   'Jigri Super': { installAmt: 0.1, trialAmt: 45, installBalance: false, trialBalance: true, installComment: 'JIGRI Install', trialComment: 'JIGRI Deposit' },
   'FRIENDSHIP': { installAmt: 0.1, trialAmt: 43, installBalance: false, trialBalance: true, installComment: 'FriendShip Install', trialComment: 'FriendShip Deposit' },
   'Incred Gold': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'Incred Install', trialComment: 'Incred Gold' },
@@ -30,12 +30,12 @@ const offerConfig = {
 };
 
 const offerSlugMap = {
-  'Gyan Tv': 'Gyan', 'PolicyBazar': 'PB', 'Bharat Ryd': 'BR',
+  'Gyan Tv': 'Gyan', 'Kuku Tv': 'KT', 'Bharat Ryd': 'BR',
   'Jigri Super': 'JS', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
 const prefixMap = {
-  'Gyan Tv': 'GV', 'PolicyBazar': 'PB', 'Bharat Ryd': 'BR',
+  'Gyan Tv': 'GV', 'Kuku Tv': 'KT', 'Bharat Ryd': 'BR',
   'Jigri Super': 'JS', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
