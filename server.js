@@ -491,7 +491,7 @@ app.post('/webhook', async (req, res) => {
             await dbPatch('users', `telegram_id=eq.${w.telegram_id}`, { balance: refundBal });
           }
           await editMsg(ADMIN_ID, message_id, `<b>💸 Withdraw Request</b>\n\n<b>📊 Request ID: ${requestId}</b>\n<b>💰 Amount: ₹${w.amount}</b>\n<b>💳 Payment: ${w.upi_id}</b>\n\n<b>❌ Cancelled</b>`, []);
-          await sendMsg(w.telegram_id, `<b>❌ Your withdraw request failed. Please contact CashFlix support.</b>\n\n<b>💰 ₹${parseFloat(w.amount).toFixed(2)} has been refunded to your wallet!</b>`);
+          await sendMsg(w.telegram_id, `<b>Your withdraw request failed. Please contact CashyFy support.</b>\n\n<b> ₹${parseFloat(w.amount).toFixed(2)} has been refunded to your wallet!</b>`);
           await answerAlert(callback_query.id, '❌ Cancelled!');
         }
 
@@ -886,9 +886,9 @@ app.get('/postback', async (req, res) => {
     const trackTime = getTime();
     let msg = '';
     if (referred_by && amount > 1) {
-      msg = `<b>Conversation Count 💝</b>\n\n<b>🎁 Offer Name - ${offer}</b>\n\n<b>User Id : ${maskPhone(phone)}</b>\n<b>User Amount : ₹${amount}</b>\n<b>🥳 User Payment : ${userPayment}</b>\n\n<b>Refer Id : ${maskPhone(referred_by)}</b>\n<b>Refer Amount : ₹${my_payout_custom}</b>\n<b>🥳 Refer Payment : Success</b>\n\n<b>Run Time - ${runTime}</b>\n<b>Track Time - ${trackTime}</b>\n\n<b>Powered By - CashFlix</b>`;
+      msg = `<b>Conversation Count 💝</b>\n\n<b>🎁 Offer Name - ${offer}</b>\n\n<b>User Id : ${maskPhone(phone)}</b>\n<b>User Amount : ₹${amount}</b>\n<b>🥳 User Payment : ${userPayment}</b>\n\n<b>Refer Id : ${maskPhone(referred_by)}</b>\n<b>Refer Amount : ₹${my_payout_custom}</b>\n<b>🥳 Refer Payment : Success</b>\n\n<b>Run Time - ${runTime}</b>\n<b>Track Time - ${trackTime}</b>\n\n<b>Powered By - CashyFy</b>`;
     } else {
-      msg = `<b>Conversation Count 💝</b>\n\n<b>🎁 Offer Name - ${offer}</b>\n\n<b>User Id : ${maskPhone(phone)}</b>\n<b>User Amount : ₹${amount}</b>\n<b>🥳 User Payment : ${userPayment}</b>\n\n<b>Run Time - ${runTime}</b>\n<b>Track Time - ${trackTime}</b>\n\n<b>Powered By - CashFlix</b>`;
+      msg = `<b>Conversation Count 💝</b>\n\n<b>🎁 Offer Name - ${offer}</b>\n\n<b>User Id : ${maskPhone(phone)}</b>\n<b>User Amount : ₹${amount}</b>\n<b>🥳 User Payment : ${userPayment}</b>\n\n<b>Run Time - ${runTime}</b>\n<b>Track Time - ${trackTime}</b>\n\n<b>Powered By - CashyFy</b>`;
     }
     await sendMsg(CHAT_ID, msg);
   } catch(e) { console.error(e); }
