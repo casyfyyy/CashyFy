@@ -24,13 +24,13 @@ const offerConfig = {
   'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
   'Kuku Tv': { installAmt: 0.1, trialAmt: 15, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
   'Jigri Super': { installAmt: 0.1, trialAmt: 45, installBalance: false, trialBalance: true, installComment: 'JIGRI Install', trialComment: 'JIGRI Deposit' },
-  'FRIENDSHIP': { installAmt: 0.1, trialAmt: 43, installBalance: false, trialBalance: true, installComment: 'FriendShip Install', trialComment: 'FriendShip Deposit' },
+  'Waves': { installAmt: 0.1, trialAmt: 43, installBalance: false, trialBalance: true, installComment: 'FriendShip Install', trialComment: 'FriendShip Deposit' },
   'Incred Gold': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'Incred Install', trialComment: 'Incred Gold' },
   'StoryTv Fire': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'StoryTv Install', trialComment: 'StoryTv Trail' }
 };
 
 const offerSlugMap = {
-  'Gyan Tv': 'Gyan', 'Kuku Tv': 'Kuku', 'Bharat Ryd': 'BR',
+  'Wavs': 'Waves', 'Kuku Tv': 'Kuku', 'Bharat Ryd': 'BR',
   'Jigri Super': 'JS', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
