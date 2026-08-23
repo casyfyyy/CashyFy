@@ -22,7 +22,7 @@ const SMS_API_KEY = process.env.SMS_API_KEY || '';
 const offerConfig = {
   'Gyan Tv': { installAmt: 0.1, trialAmt: 15, installBalance: false, trialBalance: true, installComment: 'GyanTv Install', trialComment: 'GyanTv Trail' },
   'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
-  'Kuku Tv': { installAmt: 0.1, trialAmt: 18, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
+  'Kuku Tv': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
   'Jigri Super': { installAmt: 0.1, trialAmt: 45, installBalance: false, trialBalance: true, installComment: 'JIGRI Install', trialComment: 'JIGRI Deposit' },
   'Waves': { installAmt: 0.1, trialAmt: 43, installBalance: false, trialBalance: true, installComment: 'FriendShip Install', trialComment: 'FriendShip Deposit' },
   'Incred Gold': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'Incred Install', trialComment: 'Incred Gold' },
@@ -853,7 +853,7 @@ app.get('/postback', async (req, res) => {
     const eventName = event?.trim().toLowerCase();
     if (['web', 'initial', 'install', 'e1', 'default'].includes(eventName)) {
       amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
-    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'trial_purchase', 'af_subscribe'].includes(eventName)) {
+    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'trial_purchase', 'Plan_Purchased'].includes(eventName)) {
       comment = config.trialComment; addBalance = config.trialBalance;
       amount = referred_by ? user_payout_custom : (user_payout_custom > 0 ? user_payout_custom : config.trialAmt || 0);
     } else {
