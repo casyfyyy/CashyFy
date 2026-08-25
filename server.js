@@ -15,14 +15,14 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const ADMIN_ID = '8837925145';
+const ADMIN_ID = '8897413984';
 const POSTBACK_TOKEN = process.env.POSTBACK_TOKEN || 'cashf';
 const SMS_API_KEY = process.env.SMS_API_KEY || '';
 
 const offerConfig = {
   'Gyan Tv': { installAmt: 0.1, trialAmt: 15, installBalance: false, trialBalance: true, installComment: 'GyanTv Install', trialComment: 'GyanTv Trail' },
   'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
-  'Kuku Tv': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
+  'Kuku Tv': { installAmt: 0.1, trialAmt: 18, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
   'Jigri Super': { installAmt: 0.1, trialAmt: 45, installBalance: false, trialBalance: true, installComment: 'JIGRI Install', trialComment: 'JIGRI Deposit' },
   'Waves': { installAmt: 0.1, trialAmt: 43, installBalance: false, trialBalance: true, installComment: 'FriendShip Install', trialComment: 'FriendShip Deposit' },
   'Incred Gold': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'Incred Install', trialComment: 'Incred Gold' },
@@ -574,6 +574,20 @@ app.post('/webhook', async (req, res) => {
           } else if (amt > parseFloat(u.balance)) {
             await sendMsg(chat_id, `<b>❌ Insufficient balance!</b>`);
           } else {
+            // ✅ 8 hour withdraw limit
+            const recentW = await dbGet('withdrawals', `telegram_id=eq.${chat_id}&order=created_at.desc&limit=1`);
+            if (recentW.length > 0 && recentW[0].created_at) {
+              const lastTime = new Date(recentW[0].created_at).getTime();
+              const diff = Date.now() - lastTime;
+              const hours8 = 8 * 60 * 60 * 1000;
+              if (diff < hours8) {
+                const remaining = Math.ceil((hours8 - diff) / (60 * 60 * 1000));
+                await sendMsg(chat_id, `<b>❌ Withdrawal limit!</b>
+
+You can withdraw again after <b>${remaining} hour${remaining > 1 ? 's' : ''}</b>.`);
+                return res.send('OK');
+              }
+            }
             const method = userState[chat_id].method;
             const payment = userState[chat_id].payment;
             userState[chat_id] = { state: 'withdraw_confirm', amount: amt, method, payment, message_id: mid, timestamp: Date.now() };
@@ -853,7 +867,7 @@ app.get('/postback', async (req, res) => {
     const eventName = event?.trim().toLowerCase();
     if (['web', 'initial', 'install', 'e1', 'default'].includes(eventName)) {
       amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
-    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'plan_purchased', 'h'].includes(eventName)) {
+    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'trial_purchase', 'af_subscribe'].includes(eventName)) {
       comment = config.trialComment; addBalance = config.trialBalance;
       amount = referred_by ? user_payout_custom : (user_payout_custom > 0 ? user_payout_custom : config.trialAmt || 0);
     } else {
@@ -934,30 +948,30 @@ app.get('/web/txns', async (req, res) => {
     const users = await dbGet('users', `web_token=eq.${token}`);
     if (users.length === 0) return res.json({ success: false, error: 'Invalid token.' });
     const u = users[0];
-    const conversions = await dbGet('conversions', `telegram_id=eq.${u.phone}&order=created_at.desc&limit=100`);
+    const conversions = await dbGet('conversions', `telegram_id=eq.${u.phone}&order=id.desc&limit=100`);
     const withdrawals = await dbGet('withdrawals', `telegram_id=eq.${u.telegram_id}&order=created_at.desc&limit=50`);
     const txns = [
       ...conversions.map(c => ({
         id: `TXN${c.id}`, type: 'credit',
         title: c.offer_name || 'Cashback',
-        sub: (c.offer_name || 'Cashback') + ' • ' + new Date(c.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true, day:'2-digit', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' }),
+        sub: (c.offer_name || 'Cashback') + ' • ' + (c.track_time || ''),
         amount: parseFloat(c.amount || 0),
         status: parseFloat(c.amount) > 0 ? 'success' : 'pending',
         comment: c.event || 'Cashback',
-        date: new Date(c.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'Asia/Kolkata' }),
+        date: c.track_time || '',
         method: 'cashback', closing: ''
       })),
       ...withdrawals.map(w => ({
         id: `WD${w.id}`, type: 'debit',
         title: 'Withdrawal',
-        sub: 'Withdrawal • ' + new Date(w.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true, day:'2-digit', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' }),
+        sub: 'Withdrawal • ' + (w.created_at ? new Date(w.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true, day:'2-digit', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' }) : ''),
         amount: parseFloat(w.amount || 0),
         status: w.status === 'paid' ? 'success' : w.status === 'cancelled' ? 'failed' : 'pending',
         comment: `To: ${w.upi_id}`,
-        date: new Date(w.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'Asia/Kolkata' }),
+        date: w.created_at ? new Date(w.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'Asia/Kolkata' }) : '',
         method: w.upi_id && w.upi_id.includes('@') ? 'upi' : 'bank', closing: ''
       }))
-    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+    ].sort((a, b) => b.id.localeCompare(a.id));
     res.json({ success: true, txns });
   } catch(e) { res.json({ success: false, error: 'Server error.' }); }
 });
