@@ -853,7 +853,7 @@ app.get('/postback', async (req, res) => {
     const eventName = event?.trim().toLowerCase();
     if (['web', 'initial', 'install', 'e1', 'default'].includes(eventName)) {
       amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
-    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'plan_purchased', 'h'].includes(eventName)) {
+    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'trial_purchase', 'h'].includes(eventName)) {
       comment = config.trialComment; addBalance = config.trialBalance;
       amount = referred_by ? user_payout_custom : (user_payout_custom > 0 ? user_payout_custom : config.trialAmt || 0);
     } else {
