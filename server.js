@@ -965,7 +965,6 @@ app.get('/web/txns', async (req, res) => {
   } catch(e) {
     console.error('TXNS ERROR:', e); // ✅ Debug
     res.json({ success: false, error: e.message }); // ✅ Real error message
-  }
 });
       ...withdrawals.map(w => ({
         id: `WD${w.id}`, type: 'debit',
