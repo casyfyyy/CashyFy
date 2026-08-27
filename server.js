@@ -934,19 +934,39 @@ app.get('/web/txns', async (req, res) => {
     const users = await dbGet('users', `web_token=eq.${token}`);
     if (users.length === 0) return res.json({ success: false, error: 'Invalid token.' });
     const u = users[0];
-    const conversions = await dbGet('conversions', `telegram_id=eq.${u.phone}&order=created_at.desc&limit=100`);
+    console.log('TXNS USER:', u.phone, u.telegram_id); // ✅ Debug
+    const conversions = await dbGet('conversions', `telegram_id=eq.${u.phone}&order=id.desc&limit=100`);
+    console.log('CONVERSIONS:', conversions.length); // ✅ Debug
     const withdrawals = await dbGet('withdrawals', `telegram_id=eq.${u.telegram_id}&order=created_at.desc&limit=50`);
+    console.log('WITHDRAWALS:', withdrawals.length); // ✅ Debug
     const txns = [
       ...conversions.map(c => ({
         id: `TXN${c.id}`, type: 'credit',
         title: c.offer_name || 'Cashback',
-        sub: (c.offer_name || 'Cashback') + ' • ' + new Date(c.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true, day:'2-digit', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' }),
+        sub: (c.offer_name || 'Cashback') + ' • ' + (c.track_time || ''),
         amount: parseFloat(c.amount || 0),
         status: parseFloat(c.amount) > 0 ? 'success' : 'pending',
         comment: c.event || 'Cashback',
-        date: new Date(c.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'Asia/Kolkata' }),
+        date: c.track_time || '',
         method: 'cashback', closing: ''
       })),
+      ...withdrawals.map(w => ({
+        id: `WD${w.id}`, type: 'debit',
+        title: 'Withdrawal',
+        sub: 'Withdrawal • ' + (w.created_at ? new Date(w.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true }) : ''),
+        amount: parseFloat(w.amount || 0),
+        status: w.status === 'paid' ? 'success' : w.status === 'cancelled' ? 'failed' : 'pending',
+        comment: `To: ${w.upi_id}`,
+        date: w.created_at ? new Date(w.created_at).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
+        method: w.upi_id && w.upi_id.includes('@') ? 'upi' : 'bank', closing: ''
+      }))
+    ].sort((a, b) => b.id.localeCompare(a.id));
+    res.json({ success: true, txns });
+  } catch(e) {
+    console.error('TXNS ERROR:', e); // ✅ Debug
+    res.json({ success: false, error: e.message }); // ✅ Real error message
+  }
+});
       ...withdrawals.map(w => ({
         id: `WD${w.id}`, type: 'debit',
         title: 'Withdrawal',
