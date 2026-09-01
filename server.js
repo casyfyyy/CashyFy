@@ -15,28 +15,28 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const ADMIN_ID = '8837925145';
+const ADMIN_ID = '8897413984';
 const POSTBACK_TOKEN = process.env.POSTBACK_TOKEN || 'cashf';
 const SMS_API_KEY = process.env.SMS_API_KEY || '';
 
 const offerConfig = {
   'Gyan Tv': { installAmt: 0.1, trialAmt: 15, installBalance: false, trialBalance: true, installComment: 'GyanTv Install', trialComment: 'GyanTv Trail' },
   'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
-  'Kuku Tv': { installAmt: 0.1, trialAmt: 20, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
-  'Happy Fire': { installAmt: 0.1, trialAmt: 3, installBalance: false, trialBalance: true, installComment: 'Happy Install', trialComment: 'Happy Singup' },
+  'Kuku Tv': { installAmt: 0.1, trialAmt: 18, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
+  'Jigri Super': { installAmt: 0.1, trialAmt: 45, installBalance: false, trialBalance: true, installComment: 'JIGRI Install', trialComment: 'JIGRI Deposit' },
   'Waves': { installAmt: 0.1, trialAmt: 43, installBalance: false, trialBalance: true, installComment: 'FriendShip Install', trialComment: 'FriendShip Deposit' },
   'Incred Gold': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'Incred Install', trialComment: 'Incred Gold' },
   'StoryTv Fire': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'StoryTv Install', trialComment: 'StoryTv Trail' }
 };
 
 const offerSlugMap = {
-  'Wavs': 'Waves', 'Kuku Tv': 'Kuku', 'Happy Fire': 'Hppy',
+  'Wavs': 'Waves', 'Kuku Tv': 'Kuku', 'Bharat Ryd': 'BR',
   'Jigri Super': 'JS', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
 const prefixMap = {
   'Gyan Tv': 'GV', 'Kuku Tv': 'KT', 'Bharat Ryd': 'BR',
-  'Happy Fire': 'HF', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
+  'Jigri Super': 'JS', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
 const rateLimitMap = {};
@@ -853,7 +853,7 @@ app.get('/postback', async (req, res) => {
     const eventName = event?.trim().toLowerCase();
     if (['web', 'initial', 'install', 'e1', 'default'].includes(eventName)) {
       amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
-    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'trial_purchase', 'h'].includes(eventName)) {
+    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'trial_purchase', 'af_subscribe'].includes(eventName)) {
       comment = config.trialComment; addBalance = config.trialBalance;
       amount = referred_by ? user_payout_custom : (user_payout_custom > 0 ? user_payout_custom : config.trialAmt || 0);
     } else {
@@ -934,17 +934,17 @@ app.get('/web/txns', async (req, res) => {
     const users = await dbGet('users', `web_token=eq.${token}`);
     if (users.length === 0) return res.json({ success: false, error: 'Invalid token.' });
     const u = users[0];
-    const conversions = await dbGet('conversions', `telegram_id=eq.${u.phone}&order=created_at.desc&limit=100`);
+    const conversions = await dbGet('conversions', `telegram_id=eq.${u.phone}&order=id.desc&limit=100`);
     const withdrawals = await dbGet('withdrawals', `telegram_id=eq.${u.telegram_id}&order=created_at.desc&limit=50`);
     const txns = [
       ...conversions.map(c => ({
         id: `TXN${c.id}`, type: 'credit',
         title: c.offer_name || 'Cashback',
-        sub: (c.offer_name || 'Cashback') + ' • ' + new Date(c.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true, day:'2-digit', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' }),
+        sub: (c.offer_name || 'Cashback') + ' • ' + (c.track_time || ''),
         amount: parseFloat(c.amount || 0),
         status: parseFloat(c.amount) > 0 ? 'success' : 'pending',
         comment: c.event || 'Cashback',
-        date: new Date(c.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'Asia/Kolkata' }),
+        date: c.track_time || '',
         method: 'cashback', closing: ''
       })),
       ...withdrawals.map(w => ({
@@ -959,7 +959,10 @@ app.get('/web/txns', async (req, res) => {
       }))
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
     res.json({ success: true, txns });
-  } catch(e) { res.json({ success: false, error: 'Server error.' }); }
+  } catch(e) {
+    console.error('TXNS ERROR:', e);
+    res.json({ success: false, error: e.message });
+  }
 });
 
 app.post('/web/logout', async (req, res) => {
