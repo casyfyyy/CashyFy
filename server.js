@@ -31,7 +31,7 @@ const offerConfig = {
 
 const offerSlugMap = {
   'Wavs': 'Waves', 'Kuku Tv': 'Kuku', 'Happy Fire': 'Hppy',
-  'Jigri Super': 'JS', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
+  'Jigri Super': 'JS', 'Roamiyo': 'Rmiyo', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
 const prefixMap = {
