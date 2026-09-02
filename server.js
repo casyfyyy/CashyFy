@@ -20,7 +20,7 @@ const POSTBACK_TOKEN = process.env.POSTBACK_TOKEN || 'cashf';
 const SMS_API_KEY = process.env.SMS_API_KEY || '';
 
 const offerConfig = {
-  'Gyan Tv': { installAmt: 0.1, trialAmt: 15, installBalance: false, trialBalance: true, installComment: 'GyanTv Install', trialComment: 'GyanTv Trail' },
+  'Roamiyo': { installAmt: 2, trialAmt: 15, installBalance: true, trialBalance: false, installComment: 'Roamiyo Install', trialComment: 'GyanTv Trail' },
   'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
   'Kuku Tv': { installAmt: 0.1, trialAmt: 20, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
   'Happy Fire': { installAmt: 0.1, trialAmt: 3, installBalance: false, trialBalance: true, installComment: 'Happy Install', trialComment: 'Happy Singup' },
