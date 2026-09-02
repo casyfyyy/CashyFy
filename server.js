@@ -36,7 +36,7 @@ const offerSlugMap = {
 
 const prefixMap = {
   'Gyan Tv': 'GV', 'Kuku Tv': 'KT', 'Bharat Ryd': 'BR',
-  'Happy Fire': 'HF', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
+  'Roamiyo': 'RY', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
 const rateLimitMap = {};
