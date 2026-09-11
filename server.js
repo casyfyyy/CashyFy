@@ -24,7 +24,7 @@ const offerConfig = {
   'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
   'Kuku Tv': { installAmt: 0.1, trialAmt: 20, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
   'Happy Fire': { installAmt: 0.1, trialAmt: 3, installBalance: false, trialBalance: true, installComment: 'Happy Install', trialComment: 'Happy Singup' },
-  'Waves': { installAmt: 3, trialAmt: 0, installBalance: true, trialBalance: true, installComment: 'Waves Register', trialComment: 'FriendShip Deposit' },
+  'Waves2': { installAmt: 3, trialAmt: 0, installBalance: true, trialBalance: true, installComment: 'Waves Register', trialComment: 'FriendShip Deposit' },
   'Incred Gold': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'Incred Install', trialComment: 'Incred Gold' },
   'StoryTv Fire': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'StoryTv Install', trialComment: 'StoryTv Trail' }
 };
