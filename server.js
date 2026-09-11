@@ -30,13 +30,13 @@ const offerConfig = {
 };
 
 const offerSlugMap = {
-  'Wavs': 'Waves', 'Kuku Tv': 'Kuku', 'Happy Fire': 'Hppy',
-  'Jigri Super': 'JS', 'Story Tv': 'Story', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
+  'Waves': 'Wavs', 'Kuku Tv': 'Kuku', 'Happy Fire': 'Hppy',
+  'H': 'JS', 'Story Tv': 'Story', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
 const prefixMap = {
   'Gyan Tv': 'GV', 'Kuku Tv': 'KT', 'Bharat Ryd': 'BR',
-  'Story Tv': 'ST', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
+  'Story Tv': 'ST', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'Waves': 'WV'
 };
 
 const rateLimitMap = {};
