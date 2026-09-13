@@ -23,7 +23,7 @@ const offerConfig = {
   'Story Tv': { installAmt: 2, trialAmt: 0, installBalance: true, trialBalance: false, installComment: 'StoryTv Install', trialComment: 'StoryTv Trail' },
   'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
   'Kuku Tv': { installAmt: 0.1, trialAmt: 20, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
-  'Happy Fire': { installAmt: 0.1, trialAmt: 3, installBalance: false, trialBalance: true, installComment: 'Happy Install', trialComment: 'Happy Singup' },
+  'Cheq': { installAmt: 0.1, trialAmt: 40, installBalance: false, trialBalance: true, installComment: 'Cheq Install', trialComment: 'Cheq Recharge' },
   'Waves': { installAmt: 3, trialAmt: 0, installBalance: true, trialBalance: true, installComment: 'Waves Register', trialComment: 'FriendShip Deposit' },
   'Incred Gold': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'Incred Install', trialComment: 'Incred Gold' },
   'StoryTv Fire': { installAmt: 0.1, trialAmt: 22, installBalance: false, trialBalance: true, installComment: 'StoryTv Install', trialComment: 'StoryTv Trail' }
@@ -853,7 +853,7 @@ app.get('/postback', async (req, res) => {
     const eventName = event?.trim().toLowerCase();
     if (['web', 'initial', 'install', 'e1', 'default'].includes(eventName)) {
       amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
-    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'registration', 'af_complete_registration', 'h'].includes(eventName)) {
+    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'recharge_done', 'af_complete_registration', 'h'].includes(eventName)) {
       comment = config.trialComment; addBalance = config.trialBalance;
       amount = referred_by ? user_payout_custom : (user_payout_custom > 0 ? user_payout_custom : config.trialAmt || 0);
     } else {
