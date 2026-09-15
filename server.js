@@ -20,7 +20,7 @@ const POSTBACK_TOKEN = process.env.POSTBACK_TOKEN || 'cashf';
 const SMS_API_KEY = process.env.SMS_API_KEY || '';
 
 const offerConfig = {
-  'Story Tv': { installAmt: 2, trialAmt: 0, installBalance: true, trialBalance: false, installComment: 'StoryTv Install', trialComment: 'StoryTv Trail' },
+  'Steam Key': { installAmt: 5, trialAmt: 0, installBalance: true, trialBalance: false, installComment: 'Steam Done', trialComment: 'StoryTv Trail' },
   'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
   'Kuku Tv': { installAmt: 0.1, trialAmt: 20, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
   'Cheq': { installAmt: 0.1, trialAmt: 40, installBalance: false, trialBalance: true, installComment: 'Cheq Install', trialComment: 'Cheq Recharge' },
@@ -30,13 +30,13 @@ const offerConfig = {
 };
 
 const offerSlugMap = {
-  'Cheq': 'cheq', 'Kuku Tv': 'Kuku', 'Happy Fire': 'Hppy',
+  'Steam Key': 'Skey', 'Kuku Tv': 'Kuku', 'Happy Fire': 'Hppy',
   'H': 'JS', 'Story Tv': 'Story', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
 const prefixMap = {
   'Gyan Tv': 'GV', 'Kuku Tv': 'KT', 'Bharat Ryd': 'BR',
-  'Story Tv': 'ST', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'Cheq': 'CH'
+  'Story Tv': 'ST', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'Steam Key': 'SK'
 };
 
 const rateLimitMap = {};
@@ -851,7 +851,7 @@ app.get('/postback', async (req, res) => {
     const config = offerConfig[offer] || { installAmt: 0, trialAmt: 0, installBalance: false, trialBalance: false, installComment: `${offer} Install`, trialComment: `${offer} Trial` };
     let amount = 0, comment = '', addBalance = false;
     const eventName = event?.trim().toLowerCase();
-    if (['web', 'initial', 'install', 'e1', 'default'].includes(eventName)) {
+    if (['web', 'initial', 'install', 'e1', 'done'].includes(eventName)) {
       amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
     } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'recharge_done', 'af_complete_registration', 'h'].includes(eventName)) {
       comment = config.trialComment; addBalance = config.trialBalance;
