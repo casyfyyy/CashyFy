@@ -20,7 +20,7 @@ const POSTBACK_TOKEN = process.env.POSTBACK_TOKEN || 'cashf';
 const SMS_API_KEY = process.env.SMS_API_KEY || '';
 
 const offerConfig = {
-  'Steam Key': { installAmt: 5, trialAmt: 0, installBalance: true, trialBalance: false, installComment: 'Steam Done', trialComment: 'StoryTv Trail' },
+  'Alt Drx': { installAmt: 5, trialAmt: 0, installBalance: true, trialBalance: false, installComment: 'AltDrx Register', trialComment: 'StoryTv Trail' },
   'PolicyBazar': { installAmt: 0.1, trialAmt: 5, installBalance: false, trialBalance: true, installComment: 'PolicyBazar install', trialComment: 'PolicyBazar Register' },
   'Kuku Tv': { installAmt: 0.1, trialAmt: 20, installBalance: false, trialBalance: true, installComment: 'KukuTv Install', trialComment: 'KukuTv Trial' },
   'Cheq': { installAmt: 0.1, trialAmt: 40, installBalance: false, trialBalance: true, installComment: 'Cheq Install', trialComment: 'Cheq Recharge' },
@@ -30,7 +30,7 @@ const offerConfig = {
 };
 
 const offerSlugMap = {
-  'Steam Key': 'Skey', 'Kuku Tv': 'Kuku', 'Happy Fire': 'Hppy',
+  'Alt Drx': 'Ald', 'Kuku Tv': 'Kuku', 'Happy Fire': 'Hppy',
   'H': 'JS', 'Story Tv': 'Story', 'Incred Gold': 'IG', 'StoryTv Fire': 'ST'
 };
 
@@ -853,7 +853,7 @@ app.get('/postback', async (req, res) => {
     const eventName = event?.trim().toLowerCase();
     if (['web', 'initial', 'install', 'e1', 'done'].includes(eventName)) {
       amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
-    } else if (['trial', 'purchase', 'e2', 'gold_buy', 'signup', 'register', 'recharge_done', 'af_complete_registration', 'h'].includes(eventName)) {
+    } else if (['trial', 'purchase', 'e2', 'registration', 'signup', 'register', 'recharge_done', 'af_complete_registration', 'h'].includes(eventName)) {
       comment = config.trialComment; addBalance = config.trialBalance;
       amount = referred_by ? user_payout_custom : (user_payout_custom > 0 ? user_payout_custom : config.trialAmt || 0);
     } else {
