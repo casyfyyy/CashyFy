@@ -851,7 +851,7 @@ app.get('/postback', async (req, res) => {
     const config = offerConfig[offer] || { installAmt: 0, trialAmt: 0, installBalance: false, trialBalance: false, installComment: `${offer} Install`, trialComment: `${offer} Trial` };
     let amount = 0, comment = '', addBalance = false;
     const eventName = event?.trim().toLowerCase();
-    if (['web', 'initial', 'install', 'e1', 'done'].includes(eventName)) {
+    if (['web', 'initial', 'install', 'e1', 'registration'].includes(eventName)) {
       amount = config.installAmt || 0; comment = config.installComment; addBalance = config.installBalance;
     } else if (['trial', 'purchase', 'e2', 'registration', 'signup', 'register', 'recharge_done', 'af_complete_registration', 'h'].includes(eventName)) {
       comment = config.trialComment; addBalance = config.trialBalance;
