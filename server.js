@@ -35,7 +35,7 @@ const offerSlugMap = {
 };
 
 const prefixMap = {
-  'Gyan Tv': 'GV', 'Kuku Tv': 'KT', 'Bharat Ryd': 'BR',
+  'Alt Drx': 'AD', 'Kuku Tv': 'KT', 'Bharat Ryd': 'BR',
   'Story Tv': 'ST', 'FRIENDSHIP': 'FR', 'Incred Gold': 'IG', 'Steam Key': 'SK'
 };
 
